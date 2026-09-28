@@ -5,6 +5,7 @@
 	let step = $state(1);
 	let submitting = $state(false);
 	let errorMessage = $state('');
+	let areasText = $state('');
 	let form = $state<UtilityOnboardingInput>({
 		slug: '',
 		legalName: '',
@@ -14,7 +15,8 @@
 		primaryContactName: '',
 		primaryContactPhone: '',
 		primaryContactEmail: '',
-		enabledModules: ['customers', 'meters', 'readings', 'billing', 'payments'],
+		serviceAreas: [],
+		enabledModules: ['customers', 'meters', 'readings', 'billing'],
 		status: 'Onboarding',
 		currency: 'PHP',
 		timezone: 'Asia/Manila',
@@ -28,7 +30,6 @@
 		'meters',
 		'readings',
 		'billing',
-		'payments',
 		'support',
 		'reports',
 		'advisories'
@@ -39,9 +40,9 @@
 			errorMessage = 'Complete the required organization fields.';
 		else if (
 			step === 2 &&
-			(!form.primaryContactName || !form.primaryContactEmail || form.enabledModules.length === 0)
+			(!form.primaryContactName || !form.primaryContactEmail || !areasText.trim() || form.enabledModules.length === 0)
 		)
-			errorMessage = 'Add a primary contact and choose at least one module.';
+			errorMessage = 'Add a primary contact, service area, and at least one module.';
 		else if (
 			step === 3 &&
 			(!form.initialAdminName ||
@@ -57,6 +58,7 @@
 		submitting = true;
 		errorMessage = '';
 		try {
+			form.serviceAreas = areasText.split(/[,\n]/).map((area) => area.trim()).filter(Boolean);
 			const utility = await platformService.onboardUtility(form);
 			await goto(`/super-admin/utilities/${utility.id}`);
 		} catch (e) {
@@ -72,7 +74,7 @@
 	<a href="/super-admin/utilities" class="text-sm text-cyan-400">← Utilities</a>
 	<h1 class="mt-3 text-3xl font-bold">Onboard a utility</h1>
 	<p class="mt-2 text-slate-400">
-		Creates the tenant, defaults, initial utility administrator, and audit trail in one transaction.
+		Creates an onboarding record, initial administrator, and service areas. Activation follows payment setup and review.
 	</p>
 </header>
 <ol class="mb-7 grid grid-cols-4 gap-2 text-center text-xs">
@@ -128,10 +130,13 @@
 				>Contact phone<input class="field" bind:value={form.primaryContactPhone} /></label
 			><label class="text-sm font-semibold"
 				>Initial status<select class="field" bind:value={form.status}
-					><option>Onboarding</option><option>Active</option><option>Migration Review</option
+					><option>Onboarding</option><option>Migration Review</option
 					></select
 				></label
 			>
+			<label class="text-sm font-semibold md:col-span-2">Initial service areas * (one per line or comma-separated)
+				<textarea class="field min-h-24" bind:value={areasText} placeholder="Central District, North District"></textarea>
+			</label>
 			<fieldset class="md:col-span-2">
 				<legend class="text-sm font-semibold">Enabled modules *</legend>
 				<div class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -189,6 +194,8 @@
 				<dt class="text-slate-500">Modules</dt>
 				<dd class="capitalize">{form.enabledModules.join(', ')}</dd>
 			</div>
+			<div class="sm:col-span-2"><dt class="text-slate-500">Service areas</dt><dd>{areasText}</dd></div>
+			<p class="sm:col-span-2 text-amber-200">This creates an onboarding record, not an active utility. Configure and test payment setup before operational activation. Real payment collection stays disabled.</p>
 		</dl>{/if}
 	<div class="mt-8 flex justify-between">
 		<button
@@ -204,7 +211,7 @@
 				type="button"
 				class="rounded-xl bg-cyan-600 px-5 py-2 font-bold disabled:opacity-50"
 				onclick={submit}
-				disabled={submitting}>{submitting ? 'Creating utility…' : 'Confirm and create'}</button
+				disabled={submitting}>{submitting ? 'Creating onboarding record…' : 'Create onboarding record'}</button
 			>{/if}
 	</div>
 </section>

@@ -3,6 +3,7 @@
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api';
 	import { platformService } from '$lib/platform/service';
+	import wasLogo from '$lib/assets/favicon.svg';
 
 	let email = $state('');
 	let password = $state('');
@@ -109,7 +110,7 @@
 <svelte:head><title>Sign in | Water Assistant System</title></svelte:head>
 
 <main
-	class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#080f1e] px-4 py-10 text-slate-100 sm:px-6"
+	class="auth-shell relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-4 py-8 text-slate-100 sm:px-6 sm:py-10"
 >
 	<div
 		aria-hidden="true"
@@ -120,10 +121,10 @@
 		class="pointer-events-none absolute -right-28 bottom-0 h-96 w-96 rounded-full bg-blue-600/10 blur-3xl"
 	></div>
 	<section
-		class="relative grid w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-slate-700/70 bg-[#111b2d] shadow-[0_32px_90px_rgba(0,0,0,0.35)] lg:min-h-[620px] lg:grid-cols-[1.05fr_1fr]"
+		class="auth-card relative grid w-full max-w-5xl overflow-hidden lg:min-h-[620px] lg:grid-cols-[1.05fr_1fr]"
 	>
 		<div
-			class="relative flex min-h-64 flex-col justify-between overflow-hidden border-b border-slate-700/60 bg-gradient-to-br from-[#142b40] via-[#102237] to-[#101b2d] p-8 sm:p-10 lg:border-r lg:border-b-0 lg:p-12"
+			class="auth-brand-panel relative flex min-h-64 flex-col justify-between overflow-hidden border-b border-slate-700/60 p-8 sm:p-10 lg:border-r lg:border-b-0 lg:p-12"
 		>
 			<div
 				aria-hidden="true"
@@ -135,16 +136,12 @@
 			></div>
 			<div>
 				<div class="flex items-center gap-3">
-					<div
-						aria-hidden="true"
-						class="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-300/30 bg-cyan-300/10 text-xl font-bold text-cyan-200"
-					>
-						W
-					</div>
+					<img src={wasLogo} alt="" class="h-11 w-11 rounded-xl" />
 					<div>
 						<p class="text-sm font-semibold tracking-wide text-white">Water Assistant System</p>
 						<p class="text-xs tracking-[0.16em] text-cyan-200/80">PLATFORM ADMINISTRATION</p>
 					</div>
+					<span class="ml-auto rounded-full border border-cyan-300/20 bg-cyan-300/5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-cyan-100">Platform access</span>
 				</div>
 				<h1
 					class="relative mt-12 max-w-md text-3xl leading-tight font-semibold tracking-tight text-white sm:text-4xl lg:mt-20"
@@ -166,7 +163,7 @@
 			</div>
 		</div>
 
-		<div class="flex flex-col justify-center p-8 sm:p-10 lg:p-12">
+		<div class="auth-form-panel flex flex-col justify-center p-8 sm:p-10 lg:p-12">
 			<p class="text-xs font-semibold tracking-[0.2em] text-cyan-300 uppercase">Secure sign in</p>
 			<h2 class="mt-3 text-3xl font-semibold tracking-tight text-white">
 				{recoveryCodes.length
@@ -270,12 +267,12 @@
 					onclick={startOver}>Back to sign in</button
 				>
 			{:else if challengeToken}
-				<form class="mt-8 space-y-5" onsubmit={submitMFA}>
+				<form class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitMFA}>
 					<label class="block text-sm font-medium text-slate-200"
-						>Verification code<input
+						>Authenticator or recovery code<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 font-mono tracking-[0.25em] text-white transition-colors outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
 							bind:value={code}
-							inputmode="numeric"
+							inputmode="text"
 							autocomplete="one-time-code"
 							required
 						/></label
@@ -294,7 +291,7 @@
 					>
 				</form>
 			{:else}
-				<form class="mt-8 space-y-5" onsubmit={submitPassword}>
+				<form class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitPassword}>
 					<label class="block text-sm font-medium text-slate-200"
 						>Email<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-white transition-colors outline-none placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
@@ -309,6 +306,7 @@
 						>Password<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-white transition-colors outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
 							type={showPassword ? 'text' : 'password'}
+							id="platform-password"
 							bind:value={password}
 							autocomplete="current-password"
 							required
@@ -318,6 +316,8 @@
 						<button
 							type="button"
 							class="text-sm font-medium text-slate-400 hover:text-white"
+							aria-pressed={showPassword}
+							aria-controls="platform-password"
 							onclick={() => (showPassword = !showPassword)}
 							>{showPassword ? 'Hide password' : 'Show password'}</button
 						>

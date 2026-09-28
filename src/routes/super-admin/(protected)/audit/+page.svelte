@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
@@ -9,7 +10,13 @@
 	let search = $state('');
 	let resourceType = $state('');
 	let action = $state('');
+	let actor = $state('');
+	let from = $state('');
+	let until = $state('');
 	let pageNumber = $state(1);
+	let exportReason = $state('');
+	let exporting = $state(false);
+	let exportNotice = $state('');
 	async function load() {
 		loading = true;
 		errorMessage = '';
@@ -18,6 +25,9 @@
 				search,
 				resourceType,
 				action,
+				actor,
+				from,
+				until,
 				page: pageNumber,
 				pageSize: 25
 			});
@@ -32,6 +42,18 @@
 		pageNumber = 1;
 		load();
 	}
+	async function exportEvidence() {
+		exporting = true; errorMessage = ''; exportNotice = '';
+		try {
+			const result = await platformService.exportAudit({ reason: exportReason, search, action, resourceType, actor, from, until });
+			const url = URL.createObjectURL(new Blob([result.csv], { type: 'text/csv;charset=utf-8' }));
+			const link = document.createElement('a'); link.href = url; link.download = result.fileName; link.click();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+			exportReason = '';
+			exportNotice = `${result.count} audit events exported and recorded.`;
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to export audit evidence.'; }
+		finally { exporting = false; }
+	}
 	onMount(load);
 </script>
 
@@ -43,7 +65,7 @@
 </header>
 <form
 	onsubmit={apply}
-	class="mb-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-[1fr_220px_220px_auto]"
+	class="mb-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-3"
 >
 	<input
 		class="field"
@@ -60,9 +82,19 @@
 		aria-label="Resource filter"
 		placeholder="Resource type"
 		bind:value={resourceType}
-	/><button class="rounded-xl border border-cyan-700 px-5 font-semibold text-cyan-300">Apply</button
+	/><input class="field" aria-label="Actor filter" placeholder="Actor" bind:value={actor} />
+	<label class="text-xs text-slate-400">From date<input class="field mt-1" type="date" bind:value={from} /></label>
+	<label class="text-xs text-slate-400">Through date<input class="field mt-1" type="date" bind:value={until} /></label>
+	<button class="rounded-xl border border-cyan-700 px-5 font-semibold text-cyan-300">Apply</button
 	>
 </form>
+{#if page.data.platformSession?.role === 'finance-admin'}<p class="mb-4 text-sm text-amber-200">Finance access is limited to payment-related audit events. Sensitive details and IP addresses are omitted from finance exports.</p>{/if}
+<div class="mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4">
+	<label class="min-w-64 flex-1 text-sm">Reason for evidence export<input class="field mt-2" bind:value={exportReason} maxlength="500" /></label>
+	<button class="rounded-xl border border-cyan-700 px-4 py-3 text-sm font-semibold text-cyan-300 disabled:opacity-50" disabled={exporting || !exportReason.trim()} onclick={exportEvidence}>{exporting ? 'Preparing export…' : 'Export filtered CSV'}</button>
+	<p class="w-full text-xs text-slate-400">Exports use the current filters and are limited to 5,000 events. Every export is audited.</p>
+</div>
+{#if exportNotice}<p role="status" class="mb-4 text-sm text-emerald-300">{exportNotice}</p>{/if}
 {#if loading}<StatePanel
 		variant="loading"
 		title="Loading audit trail"

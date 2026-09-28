@@ -3,11 +3,15 @@
 	import { onMount } from 'svelte';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { PlatformAuditEntry, PlatformUtility } from '$lib/platform/types';
+	import type { PlatformAuditEntry, PlatformUtility, UtilityActivationReadiness, PlatformServiceArea } from '$lib/platform/types';
 
 	const utilityId = $derived(Number(page.params.id));
 	let utility = $state<PlatformUtility | null>(null);
 	let audit = $state<PlatformAuditEntry[]>([]);
+	let readiness = $state<UtilityActivationReadiness | null>(null);
+	let serviceAreas = $state<PlatformServiceArea[]>([]);
+	let newAreaName = $state('');
+	let newAreaDescription = $state('');
 	let loading = $state(true);
 	let saving = $state(false);
 	let errorMessage = $state('');
@@ -27,6 +31,9 @@
 	let timezone = $state('Asia/Manila');
 	let settingsReason = $state('');
 	let confirmingStatus = $state(false);
+	let financeReason = $state('');
+	let financeCode = $state('');
+	let confirmingFinance = $state(false);
 	const canManage = $derived(
 		['super-admin', 'operations-admin'].includes(page.data.platformSession?.role)
 	);
@@ -40,7 +47,6 @@
 		'meters',
 		'readings',
 		'billing',
-		'payments',
 		'support',
 		'reports',
 		'advisories'
@@ -55,20 +61,24 @@
 		primaryContactEmail = value.primaryContactEmail;
 		primaryContactPhone = value.primaryContactPhone;
 		utilityType = value.utilityType;
-		enabledModules = value.enabledModules.split(',').filter(Boolean);
+		enabledModules = value.enabledModules.split(',').filter((name) => name && name !== 'payments');
 		nextStatus = value.status;
 	}
 	async function load() {
 		loading = true;
 		errorMessage = '';
 		try {
-			const [record, log, settings] = await Promise.all([
+			const [record, log, settings, activation, areas] = await Promise.all([
 				platformService.utility(utilityId),
-				platformService.audit({ tenantId: utilityId, pageSize: 10 }),
-				platformService.utilitySettings(utilityId)
+				page.data.platformSession?.role === 'support-agent' ? Promise.resolve({ items: [] as PlatformAuditEntry[] }) : platformService.audit({ tenantId: utilityId, pageSize: 10 }),
+				platformService.utilitySettings(utilityId),
+				platformService.activationReadiness(utilityId),
+				platformService.utilityServiceAreas(utilityId)
 			]);
 			populate(record);
 			audit = log.items;
+			readiness = activation;
+			serviceAreas = areas;
 			currency = settings.currency;
 			timezone = settings.timezone;
 		} catch (e) {
@@ -81,6 +91,9 @@
 		if (!profileReason.trim()) {
 			errorMessage = 'A reason is required for profile changes.';
 			return;
+		}
+		if (utility && utility.enabledModules.split(',').filter(Boolean).sort().join(',') !== [...enabledModules].sort().join(',')) {
+			if (!confirm(`Confirm module changes for ${utility.displayName}? Removed modules stop new access but do not delete records.`)) return;
 		}
 		saving = true;
 		errorMessage = '';
@@ -98,6 +111,7 @@
 				enabledModules
 			});
 			populate(updated);
+			readiness = await platformService.activationReadiness(utilityId);
 			profileReason = '';
 			successMessage = 'Utility profile saved.';
 		} catch (e) {
@@ -117,6 +131,7 @@
 		try {
 			const updated = await platformService.changeUtilityStatus(utilityId, nextStatus, reason);
 			populate(updated);
+			readiness = await platformService.activationReadiness(utilityId);
 			reason = '';
 			confirmingStatus = false;
 			successMessage = 'Utility status changed and audited.';
@@ -128,6 +143,7 @@
 		}
 	}
 	async function loadAudit() {
+		if (page.data.platformSession?.role === 'support-agent') return;
 		audit = (await platformService.audit({ tenantId: utilityId, pageSize: 10 })).items;
 	}
 	async function saveSettings() {
@@ -155,6 +171,31 @@
 			saving = false;
 		}
 	}
+	async function addArea() {
+		if (!newAreaName.trim()) { errorMessage = 'Enter a service area name.'; return; }
+		saving = true; errorMessage = ''; successMessage = '';
+		try {
+			await platformService.addUtilityServiceArea(utilityId, newAreaName, newAreaDescription);
+			serviceAreas = await platformService.utilityServiceAreas(utilityId);
+			readiness = await platformService.activationReadiness(utilityId);
+			newAreaName = ''; newAreaDescription = '';
+			successMessage = 'Service area added and audited.';
+			await loadAudit();
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to add service area.'; }
+		finally { saving = false; }
+	}
+	async function financeSuspend() {
+		if (!financeReason.trim() || !financeCode.trim()) { errorMessage = 'A reason and your current MFA code are required.'; return; }
+		saving = true; errorMessage = ''; successMessage = '';
+		try {
+			const updated = await platformService.financeSuspendUtility(utilityId, financeReason, financeCode);
+			populate(updated);
+			financeReason = ''; financeCode = ''; confirmingFinance = false;
+			successMessage = 'Finance-confirmed suspension was recorded. Payment settlement status was not changed.';
+			await loadAudit();
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to suspend utility.'; }
+		finally { saving = false; }
+	}
 	onMount(load);
 </script>
 
@@ -178,6 +219,14 @@
 		>
 	</header>
 	{#if ['super-admin','finance-admin'].includes(page.data.platformSession?.role)}<a class="mb-6 inline-block rounded-xl border border-cyan-700 px-4 py-2 text-sm font-semibold text-cyan-200" href={`/super-admin/payment-setup/${utility.id}`}>Open GCash payment setup</a>{/if}
+	<section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-5" aria-label="Operational activation readiness">
+		<h2 class="font-bold">Operational activation readiness</h2>
+		{#if readiness}
+			<p class="mt-2 text-sm text-slate-300">{readiness.ready ? 'Required setup is ready for operational activation.' : 'Complete the items below before activation.'} Service areas: {readiness.serviceAreaCount}. Simulated callback: {readiness.paymentTestPassed ? 'passed' : 'not passed'}.</p>
+			{#if readiness.blockers.length}<ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-200">{#each readiness.blockers as blocker}<li>{blocker}</li>{/each}</ul>{/if}
+			<p class="mt-3 text-sm text-amber-200">Real payment collection is disabled. A simulated callback only verifies local configuration; it is not a GCash approval or settlement.</p>
+		{/if}
+	</section>
 	{#if errorMessage}<div
 			role="alert"
 			class="mb-5 rounded-xl border border-rose-800 bg-rose-950/30 p-4 text-sm text-rose-200"
@@ -240,6 +289,22 @@
 			{/if}
 		</section>
 		<div class="space-y-6">
+			{#if page.data.platformSession?.role === 'finance-admin' && utility.status === 'Active'}
+				<section class="rounded-2xl border border-amber-700 bg-amber-950/20 p-6">
+					<h2 class="font-bold">Finance-confirmed suspension</h2>
+					<p class="mt-2 text-sm text-amber-100">Use this only after reviewing payments whose settlement cannot be confirmed. Suspending does not settle or reverse them.</p>
+					<label class="mt-4 block text-sm">Decision reason<textarea class="field min-h-20" bind:value={financeReason} maxlength="500"></textarea></label>
+					<label class="mt-3 block text-sm">Your authenticator or unused recovery code<input class="field" type="password" autocomplete="one-time-code" bind:value={financeCode} /></label>
+					{#if confirmingFinance}<p class="mt-3 text-sm text-amber-200">Confirm suspension of {utility.displayName} despite unconfirmed settlement evidence.</p><div class="mt-3 flex gap-2"><button class="rounded bg-amber-600 px-4 py-2 font-semibold disabled:opacity-50" onclick={financeSuspend} disabled={saving}>Confirm suspension</button><button class="rounded border border-slate-700 px-4 py-2" onclick={() => confirmingFinance = false}>Cancel</button></div>{:else}<button class="mt-4 rounded border border-amber-700 px-4 py-2 text-amber-200 disabled:opacity-50" disabled={saving || !financeReason.trim() || !financeCode.trim()} onclick={() => confirmingFinance = true}>Review finance suspension</button>{/if}
+				</section>
+			{/if}
+			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+				<h2 class="font-bold">Service areas</h2>
+				{#if serviceAreas.length}<ul class="mt-3 space-y-2 text-sm">{#each serviceAreas as area (area.id)}<li class="border-b border-slate-800 pb-2"><strong>{area.name}</strong>{#if area.description}<span class="ml-2 text-slate-400">{area.description}</span>{/if}</li>{/each}</ul>{:else}<p class="mt-3 text-sm text-amber-200">No service areas yet. Activation requires at least one.</p>{/if}
+				{#if canManage}<label class="mt-4 block text-sm">New area name<input class="field" bind:value={newAreaName} maxlength="191" /></label>
+					<label class="mt-3 block text-sm">Description (optional)<input class="field" bind:value={newAreaDescription} maxlength="500" /></label>
+					<button class="mt-4 rounded-xl border border-cyan-700 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-50" onclick={addArea} disabled={saving || !newAreaName.trim()}>Add service area</button>{/if}
+			</section>
 			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
 				<h2 class="font-bold">Tenant settings</h2>
 				<p class="mt-2 text-sm text-slate-400">
@@ -267,6 +332,7 @@
 			</section>
 			{#if canManage}<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
 					<h2 class="font-bold">Lifecycle control</h2>
+					{#if nextStatus === 'Active' && !readiness?.ready}<p class="mt-3 text-sm text-amber-200">Activation is blocked until the readiness items above are complete.</p>{/if}
 					<label class="mt-4 block text-sm font-semibold"
 						>New status<select class="field" bind:value={nextStatus}
 							><option>Active</option><option>Onboarding</option><option>Suspended</option><option
@@ -281,8 +347,7 @@
 					>{#if confirmingStatus}<p
 							class="mt-4 rounded-xl border border-amber-800 bg-amber-950/30 p-3 text-sm text-amber-200"
 						>
-							Confirm {nextStatus.toLowerCase()} for {utility.displayName}. This affects utility
-							access.
+							Confirm {nextStatus.toLowerCase()} for {utility.displayName}. This affects utility access. Operational activation keeps real payments disabled. Suspension is blocked when payment records lack settlement confirmation.
 						</p>
 						<div class="mt-3 flex gap-2">
 							<button
@@ -299,7 +364,7 @@
 								if (!reason.trim()) errorMessage = 'A reason is required for status changes.';
 								else confirmingStatus = true;
 							}}
-							disabled={saving || nextStatus === utility.status}>Review status change</button
+							disabled={saving || nextStatus === utility.status || (nextStatus === 'Active' && !readiness?.ready)}>Review status change</button
 						>
 					{/if}
 				</section>{/if}

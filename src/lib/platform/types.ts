@@ -38,6 +38,20 @@ export interface PlatformUtilitySettings {
 	timezone: string;
 }
 
+export interface UtilityActivationReadiness {
+	ready: boolean;
+	blockers: string[];
+	serviceAreaCount: number;
+	paymentTestPassed: boolean;
+	realPaymentCollectionReady: boolean;
+}
+
+export interface PlatformServiceArea {
+	id: number;
+	name: string;
+	description: string;
+}
+
 export interface PaymentSetupConfig {
 	id: number;
 	tenantId: number;
@@ -125,6 +139,98 @@ export interface PlatformAuditEntry {
 	ipAddress?: string;
 }
 
+export interface PlatformLedgerPayment {
+	id: number;
+	tenantId: number;
+	createdAt: string;
+	amount: string;
+	currency: string;
+	method: string;
+	status: string;
+	accountMasked: string;
+	referenceMasked: string;
+	providerVerified: false;
+	settlementVerified: false;
+}
+
+export interface PlatformServiceHealth {
+	name: string;
+	status: 'Healthy' | 'Critical' | 'Unknown';
+	detail: string;
+	latencyMs?: number;
+	observedAt: string;
+}
+
+export interface PlatformHealthSnapshot {
+	observedAt: string;
+	services: PlatformServiceHealth[];
+}
+
+export interface PlatformIncident {
+	id: number;
+	createdAt: string;
+	updatedAt: string;
+	affectedTenantId?: number;
+	serviceName: string;
+	summary: string;
+	severity: 'Low' | 'Medium' | 'High' | 'Critical';
+	status: 'Open' | 'Resolved';
+	ownerUserId: number;
+	resolutionNote?: string;
+	resolvedAt?: string;
+}
+
+export interface PlatformReportResult {
+	type: 'utility_adoption' | 'active_accounts' | 'billing_records';
+	basis: string;
+	generatedAt: string;
+	rows: { utilityId: number; utilityName: string; count: number }[];
+	total: number;
+}
+
+export interface PlatformSupportCase {
+	id: number;
+	createdAt: string;
+	updatedAt: string;
+	tenantId: number;
+	utilityTicketId?: number;
+	subject: string;
+	category: string;
+	severity: 'Low' | 'Medium' | 'High' | 'Critical';
+	status: 'Open' | 'Escalated' | 'Resolved' | 'Reopened';
+	ownerPlatformUserId?: number;
+	slaDueAt?: string;
+	escalationReason?: string;
+	resolutionSummary?: string;
+	resolvedAt?: string;
+}
+
+export interface PlatformSupportNote {
+	id: number;
+	createdAt: string;
+	caseId: number;
+	authorPlatformUserId: number;
+	body: string;
+}
+
+export interface PlatformSupportDetail {
+	case: PlatformSupportCase;
+	notes: PlatformSupportNote[];
+}
+
+export interface PlatformUtilityUser {
+	id: number;
+	tenantId: number;
+	fullName: string;
+	username: string;
+	email: string;
+	emailVerified: boolean;
+	roleName: string;
+	status: string;
+	lastLogin?: string;
+	createdAt: string;
+}
+
 export interface PlatformPage<T> {
 	items: T[];
 	page: number;
@@ -139,6 +245,10 @@ export interface PlatformDashboard {
 	suspendedUtilities: number;
 	onboardingUtilities: number;
 	platformUsers: number;
+	utilityUsers: number;
+	paymentSetups: number;
+	openIncidents: number;
+	openSupportCases: number;
 	recentUtilities: PlatformUtility[];
 	recentAudit: PlatformAuditEntry[];
 	deferredIntegrations: string[];
@@ -153,6 +263,7 @@ export interface UtilityOnboardingInput {
 	primaryContactName: string;
 	primaryContactPhone: string;
 	primaryContactEmail: string;
+	serviceAreas: string[];
 	enabledModules: string[];
 	status: PlatformUtility['status'];
 	currency: 'PHP';

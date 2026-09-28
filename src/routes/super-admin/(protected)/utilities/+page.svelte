@@ -13,8 +13,11 @@
 	const canCreate = $derived(
 		['super-admin', 'operations-admin'].includes(page.data.platformSession?.role)
 	);
+	const canExport = $derived(page.data.platformSession?.role !== 'support-agent');
 	let pageNumber = $state(1);
 	let loading = $state(true);
+	let exporting = $state(false);
+	let exportNotice = $state('');
 	let errorMessage = $state('');
 	async function load() {
 		loading = true;
@@ -39,6 +42,17 @@
 		pageNumber = 1;
 		load();
 	}
+	async function exportCSV() {
+		exporting = true; errorMessage = ''; exportNotice = '';
+		try {
+			const file = await platformService.exportUtilities({ search: search.trim(), status, module, sort });
+			const url = URL.createObjectURL(new Blob([file.csv], { type: 'text/csv;charset=utf-8' }));
+			const link = document.createElement('a'); link.href = url; link.download = file.fileName; link.click();
+			setTimeout(() => URL.revokeObjectURL(url), 1000);
+			exportNotice = `${file.count} utilities exported and audited.`;
+		} catch (error) { errorMessage = error instanceof Error ? error.message : 'Unable to export utilities.'; }
+		finally { exporting = false; }
+	}
 	onMount(load);
 </script>
 
@@ -49,12 +63,13 @@
 		<h1 class="mt-2 text-3xl font-bold">Utilities</h1>
 		<p class="mt-2 text-slate-400">Search, review, and control utility organizations.</p>
 	</div>
-	{#if canCreate}<a
+	<div class="flex gap-2">{#if canExport}<button class="rounded-xl border border-cyan-700 px-4 py-3 text-sm font-bold text-cyan-300 disabled:opacity-50" disabled={exporting} onclick={exportCSV}>{exporting ? 'Exporting…' : 'Export CSV'}</button>{/if}{#if canCreate}<a
 			href="/super-admin/utilities/new"
 			class="rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold hover:bg-cyan-500"
 			>Onboard utility</a
-		>{/if}
+		>{/if}</div>
 </header>
+{#if exportNotice}<p role="status" class="mb-4 text-sm text-emerald-300">{exportNotice}</p>{/if}
 <form
 	onsubmit={submit}
 	class="mb-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 sm:grid-cols-2 xl:grid-cols-[1fr_180px_180px_180px_auto]"

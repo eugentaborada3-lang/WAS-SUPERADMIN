@@ -15,7 +15,17 @@ import type {
 	PaymentFeeQuote,
 	PaymentCallbackTest,
 	PaymentSetupNotice,
-	UtilityOnboardingInput
+	UtilityOnboardingInput,
+	UtilityActivationReadiness,
+	PlatformServiceArea,
+	PlatformLedgerPayment,
+	PlatformHealthSnapshot,
+	PlatformIncident,
+	PlatformReportResult,
+	PlatformSupportCase,
+	PlatformSupportDetail,
+	PlatformSupportNote,
+	PlatformUtilityUser
 } from './types';
 
 const required = <T>(value: T | null, feature: string): T => {
@@ -75,6 +85,69 @@ export const platformService = {
 			'Platform dashboard'
 		);
 	},
+	async ledgerPayments(query: Record<string, string | number | undefined> = {}) {
+		const params = new URLSearchParams();
+		Object.entries(query).forEach(([key, value]) => {
+			if (value !== undefined && value !== '') params.set(key, String(value));
+		});
+		return required(await apiFetch<PlatformPage<PlatformLedgerPayment>>(`/api/platform/transactions?${params}`), 'Utility payment ledger');
+	},
+	async healthSnapshot() {
+		return required(await apiFetch<PlatformHealthSnapshot>('/api/platform/monitoring/health'), 'Platform health');
+	},
+	async incidents(status = '') {
+		const params = new URLSearchParams();
+		if (status) params.set('status', status);
+		return required(await apiFetch<PlatformIncident[]>(`/api/platform/monitoring/incidents?${params}`), 'Platform incidents');
+	},
+	async createIncident(input: { serviceName: string; summary: string; severity: PlatformIncident['severity']; affectedTenantId?: number }) {
+		return required(await apiFetch<PlatformIncident>('/api/platform/monitoring/incidents', { method: 'POST', body: JSON.stringify(input) }), 'Create incident');
+	},
+	async resolveIncident(id: number, resolutionNote: string) {
+		return required(await apiFetch<PlatformIncident>(`/api/platform/monitoring/incidents/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolutionNote }) }), 'Resolve incident');
+	},
+	async report(query: { type: string; from: string; until: string; tenantId: string }) {
+		const params = new URLSearchParams();
+		Object.entries(query).forEach(([key, value]) => { if (value) params.set(key, value); });
+		return required(await apiFetch<PlatformReportResult>(`/api/platform/reports?${params}`), 'Platform report');
+	},
+	async exportReport(query: { type: string; from: string; until: string; tenantId: string }) {
+		return required(await apiFetch<{ csv: string; fileName: string; count: number }>('/api/platform/reports/export', { method: 'POST', body: JSON.stringify(query) }), 'Platform report export');
+	},
+	async supportCases(query: { tenantId?: string; status?: string; search?: string } = {}) {
+		const params = new URLSearchParams();
+		Object.entries(query).forEach(([key, value]) => { if (value) params.set(key, value); });
+		return required(await apiFetch<PlatformSupportCase[]>(`/api/platform/support/cases?${params}`), 'Platform support cases');
+	},
+	async supportCase(id: number) {
+		return required(await apiFetch<PlatformSupportDetail>(`/api/platform/support/cases/${id}`), 'Platform support case');
+	},
+	async createSupportCase(input: { tenantId: number; utilityTicketId?: number; subject: string; category: string; severity: string; slaDueAt: string }) {
+		return required(await apiFetch<PlatformSupportCase>('/api/platform/support/cases', { method: 'POST', body: JSON.stringify(input) }), 'Create support case');
+	},
+	async assignSupportCase(id: number, ownerId: number) {
+		return required(await apiFetch<PlatformSupportCase>(`/api/platform/support/cases/${id}/assign`, { method: 'POST', body: JSON.stringify({ ownerId }) }), 'Assign support case');
+	},
+	async escalateSupportCase(id: number, severity: string, reason: string) {
+		return required(await apiFetch<PlatformSupportCase>(`/api/platform/support/cases/${id}/escalate`, { method: 'POST', body: JSON.stringify({ severity, reason }) }), 'Escalate support case');
+	},
+	async resolveSupportCase(id: number, resolutionSummary: string) {
+		return required(await apiFetch<PlatformSupportCase>(`/api/platform/support/cases/${id}/resolve`, { method: 'POST', body: JSON.stringify({ resolutionSummary }) }), 'Resolve support case');
+	},
+	async reopenSupportCase(id: number, reason: string) {
+		return required(await apiFetch<PlatformSupportCase>(`/api/platform/support/cases/${id}/reopen`, { method: 'POST', body: JSON.stringify({ reason }) }), 'Reopen support case');
+	},
+	async addSupportNote(id: number, body: string) {
+		return required(await apiFetch<PlatformSupportNote>(`/api/platform/support/cases/${id}/notes`, { method: 'POST', body: JSON.stringify({ body }) }), 'Add internal support note');
+	},
+	async utilityUsers(query: { tenantId?: string; status?: string; search?: string; page?: number; pageSize?: number } = {}) {
+		const params = new URLSearchParams();
+		Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+		return required(await apiFetch<PlatformPage<PlatformUtilityUser>>(`/api/platform/utility-users?${params}`), 'Utility users');
+	},
+	async changeUtilityUserStatus(tenantId: number, userId: number, status: string, reason: string) {
+		return required(await apiFetch<PlatformUtilityUser>(`/api/platform/utility-users/${tenantId}/${userId}/status`, { method: 'POST', body: JSON.stringify({ status, reason }) }), 'Utility user status');
+	},
 	async utilities(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
 		Object.entries(query).forEach(([key, value]) => {
@@ -84,6 +157,11 @@ export const platformService = {
 			await apiFetch<PlatformPage<PlatformUtility>>(`/api/platform/utilities?${params}`),
 			'Utilities'
 		);
+	},
+	async exportUtilities(query: Record<string, string | number | undefined> = {}) {
+		const params = new URLSearchParams();
+		Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+		return required(await apiFetch<{ csv: string; fileName: string; count: number }>(`/api/platform/utilities/export?${params}`), 'Utility export');
 	},
 	async utility(id: number) {
 		return required(
@@ -96,6 +174,15 @@ export const platformService = {
 			await apiFetch<PlatformUtilitySettings>(`/api/platform/utilities/${id}/settings`),
 			'Utility settings'
 		);
+	},
+	async activationReadiness(id: number) {
+		return required(await apiFetch<UtilityActivationReadiness>(`/api/platform/utilities/${id}/activation-readiness`), 'Activation readiness');
+	},
+	async utilityServiceAreas(id: number) {
+		return required(await apiFetch<PlatformServiceArea[]>(`/api/platform/utilities/${id}/service-areas`), 'Service areas');
+	},
+	async addUtilityServiceArea(id: number, name: string, description: string) {
+		return required(await apiFetch<PlatformServiceArea>(`/api/platform/utilities/${id}/service-areas`, { method: 'POST', body: JSON.stringify({ name, description }) }), 'Add service area');
 	},
 	async paymentSetup(id: number) {
 		return required(await apiFetch<PaymentSetupState>(`/api/platform/payment-setup/${id}`),'Payment setup');
@@ -166,6 +253,9 @@ export const platformService = {
 			}),
 			'Utility status'
 		);
+	},
+	async financeSuspendUtility(id: number, reason: string, code: string) {
+		return required(await apiFetch<PlatformUtility>(`/api/platform/utilities/${id}/finance-suspend`, { method: 'POST', body: JSON.stringify({ reason, code }) }), 'Finance-confirmed suspension');
 	},
 	async users(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
@@ -241,5 +331,8 @@ export const platformService = {
 			await apiFetch<PlatformPage<PlatformAuditEntry>>(`/api/platform/audit?${params}`),
 			'Platform audit'
 		);
+	},
+	async exportAudit(input: { reason: string; search: string; action: string; resourceType: string; actor: string; from: string; until: string; tenantId?: number }) {
+		return required(await apiFetch<{ csv: string; fileName: string; count: number }>('/api/platform/audit/export', { method: 'POST', body: JSON.stringify(input) }), 'Audit export');
 	}
 };
