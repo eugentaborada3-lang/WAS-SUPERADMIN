@@ -29,6 +29,11 @@
 	let profileReason = $state('');
 	let currency = $state<'PHP'>('PHP');
 	let timezone = $state('Asia/Manila');
+	let maximumAccounts = $state(100000);
+	let billingCycleLimit = $state(24);
+	let storageLimitGb = $state(10);
+	let slaTier = $state<'Standard' | 'Priority' | 'Enterprise'>('Standard');
+	let assignedOwner = $state('');
 	let settingsReason = $state('');
 	let confirmingStatus = $state(false);
 	let financeReason = $state('');
@@ -81,6 +86,11 @@
 			serviceAreas = areas;
 			currency = settings.currency;
 			timezone = settings.timezone;
+			maximumAccounts = settings.maximumAccounts;
+			billingCycleLimit = settings.billingCycleLimit;
+			storageLimitGb = settings.storageLimitGb;
+			slaTier = settings.slaTier;
+			assignedOwner = settings.assignedOwner;
 		} catch (e) {
 			errorMessage = e instanceof Error ? e.message : 'Unable to load utility.';
 		} finally {
@@ -158,10 +168,20 @@
 			const settings = await platformService.updateUtilitySettings(utilityId, {
 				currency,
 				timezone,
+				maximumAccounts,
+				billingCycleLimit,
+				storageLimitGb,
+				slaTier,
+				assignedOwner,
 				reason: settingsReason
 			});
 			currency = settings.currency;
 			timezone = settings.timezone;
+			maximumAccounts = settings.maximumAccounts;
+			billingCycleLimit = settings.billingCycleLimit;
+			storageLimitGb = settings.storageLimitGb;
+			slaTier = settings.slaTier;
+			assignedOwner = settings.assignedOwner;
 			settingsReason = '';
 			successMessage = 'Tenant settings saved and audited.';
 			await loadAudit();
@@ -320,6 +340,16 @@
 							disabled={!canManage}
 							placeholder="Asia/Manila"
 						/></label
+					><label class="text-sm font-semibold"
+						>Maximum customer accounts<input class="field" type="number" min="1" max="10000000" bind:value={maximumAccounts} disabled={!canManage} /></label
+					><label class="text-sm font-semibold"
+						>Billing cycles retained<input class="field" type="number" min="1" max="120" bind:value={billingCycleLimit} disabled={!canManage} /></label
+					><label class="text-sm font-semibold"
+						>Storage allocation (GB)<input class="field" type="number" min="1" max="10000" bind:value={storageLimitGb} disabled={!canManage} /></label
+					><label class="text-sm font-semibold"
+						>Service level<select class="field" bind:value={slaTier} disabled={!canManage}><option>Standard</option><option>Priority</option><option>Enterprise</option></select></label
+					><label class="text-sm font-semibold"
+						>Assigned platform owner<input class="field" bind:value={assignedOwner} maxlength="191" disabled={!canManage} placeholder="Unassigned" /></label
 					>{#if canManage}<label class="text-sm font-semibold"
 							>Change reason<textarea class="field min-h-20" bind:value={settingsReason}
 							></textarea></label

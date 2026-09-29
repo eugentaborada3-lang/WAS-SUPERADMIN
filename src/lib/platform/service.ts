@@ -19,6 +19,7 @@ import type {
 	UtilityActivationReadiness,
 	PlatformServiceArea,
 	PlatformLedgerPayment,
+	PlatformLedgerPaymentDetail,
 	PlatformHealthSnapshot,
 	PlatformIncident,
 	PlatformReportResult,
@@ -91,6 +92,12 @@ export const platformService = {
 			if (value !== undefined && value !== '') params.set(key, String(value));
 		});
 		return required(await apiFetch<PlatformPage<PlatformLedgerPayment>>(`/api/platform/transactions?${params}`), 'Utility payment ledger');
+	},
+	async ledgerPayment(id: number) {
+		return required(await apiFetch<PlatformLedgerPaymentDetail>(`/api/platform/transactions/${id}`), 'Payment ledger detail');
+	},
+	async exportLedgerPayments(input: { tenantId?: number; status: string; search: string; reason: string }) {
+		return required(await apiFetch<{ csv: string; fileName: string; count: number }>('/api/platform/transactions/export', { method: 'POST', body: JSON.stringify(input) }), 'Payment ledger export');
 	},
 	async healthSnapshot() {
 		return required(await apiFetch<PlatformHealthSnapshot>('/api/platform/monitoring/health'), 'Platform health');

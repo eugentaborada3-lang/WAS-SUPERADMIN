@@ -36,6 +36,11 @@ export interface PlatformUtility {
 export interface PlatformUtilitySettings {
 	currency: 'PHP';
 	timezone: string;
+	maximumAccounts: number;
+	billingCycleLimit: number;
+	storageLimitGb: number;
+	slaTier: 'Standard' | 'Priority' | 'Enterprise';
+	assignedOwner: string;
 }
 
 export interface UtilityActivationReadiness {
@@ -151,6 +156,16 @@ export interface PlatformLedgerPayment {
 	referenceMasked: string;
 	providerVerified: false;
 	settlementVerified: false;
+	billId?: number;
+	fee: string;
+	callbackStatus: string;
+	postingStatus: string;
+	settlementBatch: string;
+}
+
+export interface PlatformLedgerPaymentDetail extends PlatformLedgerPayment {
+	providerTransactionMasked: string;
+	evidenceState: string;
 }
 
 export interface PlatformServiceHealth {
@@ -249,6 +264,11 @@ export interface PlatformDashboard {
 	paymentSetups: number;
 	openIncidents: number;
 	openSupportCases: number;
+	billsGenerated: number;
+	recordedPayments: number;
+	totalPaymentVolume: string;
+	recordedServiceFees: string;
+	financialDataVisible: boolean;
 	recentUtilities: PlatformUtility[];
 	recentAudit: PlatformAuditEntry[];
 	deferredIntegrations: string[];

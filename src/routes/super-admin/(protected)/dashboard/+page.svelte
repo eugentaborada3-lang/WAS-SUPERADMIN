@@ -46,6 +46,22 @@
 				].filter((card) => role && card.roles.includes(role))
 			: []
 	);
+	const billingCards = $derived(
+		dashboard
+			? [
+					{ label: 'Bills generated', value: dashboard.billsGenerated.toLocaleString(), detail: 'Persisted billing records', href: '/super-admin/reports' },
+					{ label: 'Recorded payments', value: dashboard.recordedPayments.toLocaleString(), detail: 'Ledger entries, not provider proof', href: '/super-admin/transactions' }
+				]
+			: []
+	);
+	const financeCards = $derived(
+		dashboard?.financialDataVisible
+			? [
+					{ label: 'Recorded payment volume', value: `PHP ${dashboard.totalPaymentVolume}`, detail: 'Not verified settlement' },
+					{ label: 'Recorded service fees', value: `PHP ${dashboard.recordedServiceFees}`, detail: 'Persisted fees only' }
+				]
+			: []
+	);
 </script>
 
 <svelte:head><title>Platform overview | WAS</title></svelte:head>
@@ -90,6 +106,22 @@
 					<p class="mt-4 flex items-center justify-between gap-3 text-xs text-slate-400"><span>{card.detail}</span><span aria-hidden="true">→</span></p>
 				</a>{/each}
 		</div>
+	</section>
+	<section class="mt-7" aria-labelledby="billing-metrics-heading">
+		<div class="mb-4 flex items-end justify-between gap-3"><h2 id="billing-metrics-heading" class="text-xl font-semibold text-white">Billing records</h2><p class="text-xs text-slate-400">Persisted platform totals</p></div>
+		<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+			{#each billingCards as card}<a class="platform-metric" href={card.href}>
+				<p class="text-sm font-medium text-slate-300">{card.label}</p>
+				<p class="mt-5 text-3xl font-semibold tracking-tight text-white">{card.value}</p>
+				<p class="mt-4 flex items-center justify-between gap-3 text-xs text-slate-400"><span>{card.detail}</span><span aria-hidden="true">→</span></p>
+			</a>{/each}
+			{#each financeCards as card}<div class="platform-metric">
+				<p class="text-sm font-medium text-slate-300">{card.label}</p>
+				<p class="mt-5 text-3xl font-semibold tracking-tight text-white">{card.value}</p>
+				<p class="mt-4 text-xs text-amber-200">{card.detail}</p>
+			</div>{/each}
+		</div>
+		{#if !dashboard.financialDataVisible}<p class="mt-3 text-xs text-slate-500">Financial amounts are restricted to Super Admin and Finance Admin roles.</p>{/if}
 	</section>
 	<div class="mt-7 grid gap-5 xl:grid-cols-2">
 		<section class="platform-panel">
