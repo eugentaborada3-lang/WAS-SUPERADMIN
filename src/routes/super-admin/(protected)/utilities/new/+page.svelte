@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { UtilityOnboardingInput } from '$lib/platform/types';
+	import type { OnboardingDraft, UtilityOnboardingInput } from '$lib/platform/types';
 	let step = $state(1);
 	let submitting = $state(false);
 	let errorMessage = $state('');
 	let areasText = $state('');
+	let drafts = $state<OnboardingDraft[]>([]);
+	let draftId = $state<number | undefined>(undefined);
+	let draftVersion = $state(0);
+	let notice = $state('');
 	let form = $state<UtilityOnboardingInput>({
 		slug: '',
 		legalName: '',
@@ -34,6 +39,9 @@
 		'reports',
 		'advisories'
 	];
+	onMount(async () => { try { drafts = await platformService.onboardingDrafts(); } catch { drafts = []; } });
+	function loadDraft(draft: OnboardingDraft) { form = { ...draft.payload, initialAdminPassword: '' }; areasText = draft.payload.serviceAreas.join('\n'); draftId = draft.id; draftVersion = draft.version; step = 1; notice = `Loaded draft “${draft.name}”. Enter a temporary password before submission.`; }
+	async function saveDraft() { submitting = true; errorMessage = ''; notice = ''; try { form.serviceAreas = areasText.split(/[,\n]/).map((area) => area.trim()).filter(Boolean); const saved = await platformService.saveOnboardingDraft({ name: form.displayName || form.legalName || 'Untitled utility', version:draftVersion, payload:form }, draftId); draftId=saved.id; draftVersion=saved.version; drafts=await platformService.onboardingDrafts(); notice='Onboarding draft saved without storing the temporary password.'; } catch(e) { errorMessage=e instanceof Error?e.message:'Unable to save draft.'; } finally { submitting=false; } }
 	function next() {
 		errorMessage = '';
 		if (step === 1 && (!form.slug || !form.legalName || !form.displayName || !form.officeAddress))
@@ -59,7 +67,7 @@
 		errorMessage = '';
 		try {
 			form.serviceAreas = areasText.split(/[,\n]/).map((area) => area.trim()).filter(Boolean);
-			const utility = await platformService.onboardUtility(form);
+			const utility = draftId ? await platformService.submitOnboardingDraft(draftId, form.initialAdminPassword) : await platformService.onboardUtility(form);
 			await goto(`/super-admin/utilities/${utility.id}`);
 		} catch (e) {
 			errorMessage = e instanceof Error ? e.message : 'Utility onboarding failed.';
@@ -77,6 +85,8 @@
 		Creates an onboarding record, initial administrator, and service areas. Activation follows payment setup and review.
 	</p>
 </header>
+{#if notice}<p role="status" class="mb-5 rounded-xl border border-emerald-800 bg-emerald-950/30 p-4 text-sm text-emerald-200">{notice}</p>{/if}
+{#if drafts.length}<section class="mb-6 rounded-2xl border border-slate-800 bg-slate-900 p-4"><h2 class="font-semibold">Saved onboarding drafts and review queue</h2><div class="mt-3 grid gap-2 sm:grid-cols-2">{#each drafts as draft}<button type="button" onclick={() => loadDraft(draft)} class="rounded-xl border border-slate-700 p-3 text-left text-sm"><strong>{draft.name}</strong><span class="block text-xs text-slate-400">{draft.status} · updated {new Date(draft.updatedAt).toLocaleString()}</span></button>{/each}</div></section>{/if}
 <ol class="mb-7 grid grid-cols-4 gap-2 text-center text-xs">
 	{#each ['Organization', 'Contact & modules', 'Administrator', 'Review'] as label, index}<li
 			class="rounded-lg border px-2 py-3"
@@ -203,7 +213,7 @@
 			class="rounded-xl border border-slate-700 px-4 py-2 disabled:opacity-40"
 			disabled={step === 1 || submitting}
 			onclick={() => step--}>Back</button
-		>{#if step < 4}<button
+		><div class="flex gap-2"><button type="button" onclick={saveDraft} disabled={submitting} class="rounded-xl border border-cyan-700 px-4 py-2 text-cyan-300 disabled:opacity-50">Save draft</button>{#if step < 4}<button
 				type="button"
 				class="rounded-xl bg-cyan-600 px-5 py-2 font-bold"
 				onclick={next}>Continue</button
@@ -212,7 +222,7 @@
 				class="rounded-xl bg-cyan-600 px-5 py-2 font-bold disabled:opacity-50"
 				onclick={submit}
 				disabled={submitting}>{submitting ? 'Creating onboarding record…' : 'Create onboarding record'}</button
-			>{/if}
+			>{/if}</div>
 	</div>
 </section>
 

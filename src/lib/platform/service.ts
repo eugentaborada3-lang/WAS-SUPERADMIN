@@ -329,6 +329,15 @@ export const platformService = {
 			'Platform roles'
 		);
 	},
+	async permissions() { return required(await apiFetch<{ id:number; name:string; description:string }[]>('/api/platform/permissions'), 'Platform permissions'); },
+	async updateRole(id:number, input:{ displayName:string; description:string; permissions:string[]; reason:string }) { return required(await apiFetch<PlatformRoleTemplate>(`/api/platform/roles/${id}`, { method:'PUT', body:JSON.stringify(input) }), 'Role template update'); },
+	async onboardingDrafts() { return required(await apiFetch<import('./types').OnboardingDraft[]>('/api/platform/onboarding-drafts'), 'Onboarding drafts'); },
+	async saveOnboardingDraft(input:{ name:string; version:number; payload:UtilityOnboardingInput }, id?:number) { return required(await apiFetch<import('./types').OnboardingDraft>(id ? `/api/platform/onboarding-drafts/${id}` : '/api/platform/onboarding-drafts', { method:id?'PUT':'POST', body:JSON.stringify(input) }), 'Onboarding draft'); },
+	async submitOnboardingDraft(id:number, initialAdminPassword:string) { return required(await apiFetch<PlatformUtility>(`/api/platform/onboarding-drafts/${id}/submit`, { method:'POST', body:JSON.stringify({ initialAdminPassword }) }), 'Onboarding submission'); },
+	async accessLogs() { return required(await apiFetch<PlatformPage<PlatformAuditEntry>>('/api/platform/access-logs?pageSize=50'), 'Access logs'); },
+	async exportAccessLogs(reason:string) { return required(await apiFetch<{csv:string;fileName:string;count:number}>('/api/platform/access-logs/export',{method:'POST',body:JSON.stringify({reason})}),'Access log export'); },
+	async auditRetention() { return required(await apiFetch<import('./types').AuditRetentionPolicy>('/api/platform/audit/retention'), 'Audit retention'); },
+	async updateAuditRetention(input:{ retentionDays:number; legalHold:boolean; legalHoldReason:string; reason:string }) { return required(await apiFetch<import('./types').AuditRetentionPolicy>('/api/platform/audit/retention', { method:'PUT', body:JSON.stringify(input) }), 'Audit retention update'); },
 	async audit(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
 		Object.entries(query).forEach(([key, value]) => {

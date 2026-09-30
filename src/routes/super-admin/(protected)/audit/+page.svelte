@@ -17,6 +17,12 @@
 	let exportReason = $state('');
 	let exporting = $state(false);
 	let exportNotice = $state('');
+	let accessLogs = $state<PlatformAuditEntry[]>([]);
+	let retentionDays = $state(2555);
+	let legalHold = $state(false);
+	let legalHoldReason = $state('');
+	let retentionReason = $state('');
+	let savingRetention = $state(false);
 	async function load() {
 		loading = true;
 		errorMessage = '';
@@ -54,7 +60,10 @@
 		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to export audit evidence.'; }
 		finally { exporting = false; }
 	}
-	onMount(load);
+	async function loadGovernance() { try { accessLogs = (await platformService.accessLogs()).items; if (page.data.platformSession?.role === 'super-admin') { const policy=await platformService.auditRetention(); retentionDays=policy.retentionDays;legalHold=policy.legalHold;legalHoldReason=policy.legalHoldReason; } } catch(e) { errorMessage=e instanceof Error?e.message:'Unable to load audit governance.'; } }
+	async function saveRetention(event:SubmitEvent){event.preventDefault();savingRetention=true;try{await platformService.updateAuditRetention({retentionDays,legalHold,legalHoldReason,reason:retentionReason});exportNotice='Audit retention policy updated and recorded.';retentionReason='';}catch(e){errorMessage=e instanceof Error?e.message:'Unable to update retention.';}finally{savingRetention=false;}}
+	async function exportAccess(){if(exportReason.trim().length<5)return;try{const result=await platformService.exportAccessLogs(exportReason);const url=URL.createObjectURL(new Blob([result.csv],{type:'text/csv;charset=utf-8'}));const link=document.createElement('a');link.href=url;link.download=result.fileName;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);exportNotice=`${result.count} access events exported and recorded.`;exportReason='';}catch(e){errorMessage=e instanceof Error?e.message:'Unable to export access logs.';}}
+	onMount(() => { void Promise.all([load(),loadGovernance()]); });
 </script>
 
 <svelte:head><title>Audit logs | WAS Platform</title></svelte:head>
@@ -63,6 +72,10 @@
 	<h1 class="mt-2 text-3xl font-bold">Platform audit logs</h1>
 	<p class="mt-2 text-slate-400">Immutable operational evidence for sensitive platform actions.</p>
 </header>
+<section class="mb-6 grid gap-5 xl:grid-cols-2">
+	<div class="rounded-2xl border border-slate-800 bg-slate-900 p-5"><h2 class="font-semibold">Recent platform access</h2><p class="mt-1 text-xs text-slate-400">Successful, failed, rejected, and locked platform sign-in events.</p><div class="mt-4 space-y-2">{#if accessLogs.length===0}<p class="text-sm text-slate-500">No access events found.</p>{:else}{#each accessLogs.slice(0,8) as entry}<div class="rounded-lg bg-slate-950 p-3 text-xs"><strong>{entry.action}</strong><span class="block text-slate-400">{entry.actor || 'Unknown account'} · {new Date(entry.createdAt).toLocaleString()} · {entry.ipAddress || 'IP not recorded'}</span></div>{/each}{/if}</div><button type="button" onclick={exportAccess} disabled={exportReason.trim().length<5} class="mt-4 rounded-lg border border-cyan-700 px-3 py-2 text-xs font-semibold text-cyan-300 disabled:opacity-50">Export access CSV using evidence reason</button></div>
+	{#if page.data.platformSession?.role === 'super-admin'}<form onsubmit={saveRetention} class="rounded-2xl border border-slate-800 bg-slate-900 p-5"><h2 class="font-semibold">Audit retention control</h2><p class="mt-1 text-xs text-slate-400">Policy configuration never edits or deletes immutable audit events.</p><label class="mt-4 block text-sm">Retention days<input class="field mt-1" type="number" min="365" max="3650" bind:value={retentionDays} /></label><label class="mt-3 flex gap-2 text-sm"><input type="checkbox" bind:checked={legalHold} />Legal hold</label>{#if legalHold}<label class="mt-3 block text-sm">Legal-hold reason<textarea class="field mt-1" bind:value={legalHoldReason} minlength="5"></textarea></label>{/if}<label class="mt-3 block text-sm">Change reason<textarea class="field mt-1" bind:value={retentionReason} minlength="5" required></textarea></label><button disabled={savingRetention||retentionReason.trim().length<5} class="mt-4 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold disabled:opacity-50">{savingRetention?'Saving…':'Save policy'}</button></form>{/if}
+</section>
 <form
 	onsubmit={apply}
 	class="mb-6 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-3"

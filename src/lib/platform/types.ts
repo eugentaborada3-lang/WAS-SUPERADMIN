@@ -301,3 +301,6 @@ export interface PlatformRoleTemplate {
 	description: string;
 	permissions: string[];
 }
+
+export interface OnboardingDraft { id:number; name:string; slug:string; status:string; version:number; updatedAt:string; submittedAt?:string; payload:UtilityOnboardingInput }
+export interface AuditRetentionPolicy { id:number; retentionDays:number; legalHold:boolean; legalHoldReason:string; updatedAt:string }
