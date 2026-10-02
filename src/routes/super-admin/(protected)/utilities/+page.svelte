@@ -63,7 +63,7 @@
 		<h1 class="mt-2 text-3xl font-bold">Utilities</h1>
 		<p class="mt-2 text-slate-400">Search, review, and control utility organizations.</p>
 	</div>
-	<div class="flex gap-2">{#if canExport}<button class="rounded-xl border border-cyan-700 px-4 py-3 text-sm font-bold text-cyan-300 disabled:opacity-50" disabled={exporting} onclick={exportCSV}>{exporting ? 'Exporting…' : 'Export CSV'}</button>{/if}{#if canCreate}<a
+	<div class="flex gap-2">{#if canCreate}<a href="/super-admin/utilities/import" class="rounded-xl border border-cyan-700 px-4 py-3 text-sm font-bold text-cyan-300">Import utilities</a>{/if}{#if canExport}<button class="rounded-xl border border-cyan-700 px-4 py-3 text-sm font-bold text-cyan-300 disabled:opacity-50" disabled={exporting} onclick={exportCSV}>{exporting ? 'Exporting…' : 'Export CSV'}</button>{/if}{#if canCreate}<a
 			href="/super-admin/utilities/new"
 			class="rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold hover:bg-cyan-500"
 			>Onboard utility</a

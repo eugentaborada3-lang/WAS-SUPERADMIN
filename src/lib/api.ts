@@ -39,7 +39,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T |
 	}
 
 	const headers = new Headers(init?.headers ?? {});
-	if (init?.body) {
+	if (init?.body && !(init.body instanceof FormData)) {
 		headers.set('Content-Type', 'application/json');
 	}
 	if (!headers.has('X-Request-ID')) {
@@ -62,4 +62,21 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T |
 	}
 
 	return (envelope?.data ?? envelope) as T;
+}
+
+export async function apiDownload(path: string): Promise<Blob> {
+	if (!isLiveApiEnabled()) throw new Error('The live platform API is not configured.');
+	const response = await fetch(`${API_BASE_URL}${path}`, {
+		credentials: 'include',
+		headers: { 'X-Request-ID': crypto.randomUUID() }
+	});
+	if (!response.ok) {
+		const envelope = (await response.json().catch(() => null)) as ApiEnvelope<never> | null;
+		throw new ApiError(
+			response.status,
+			envelope?.message ?? `Request failed with status ${response.status}.`,
+			envelope?.errorId
+		);
+	}
+	return response.blob();
 }

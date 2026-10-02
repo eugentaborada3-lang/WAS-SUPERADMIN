@@ -17,6 +17,11 @@
 		displayName: '',
 		utilityType: 'Water District',
 		officeAddress: '',
+		region: '',
+		province: '',
+		city: '',
+		authorityReference: '',
+		estimatedAccounts: 0,
 		primaryContactName: '',
 		primaryContactPhone: '',
 		primaryContactEmail: '',
@@ -126,6 +131,11 @@
 				>Office address *<textarea class="field min-h-24" bind:value={form.officeAddress}
 				></textarea></label
 			>
+			<label class="text-sm font-semibold">Region<input class="field" bind:value={form.region} /></label>
+			<label class="text-sm font-semibold">Province<input class="field" bind:value={form.province} /></label>
+			<label class="text-sm font-semibold">City / municipality<input class="field" bind:value={form.city} /></label>
+			<label class="text-sm font-semibold">Authority reference<input class="field" bind:value={form.authorityReference} placeholder="Enabling law, permit, or board reference" /></label>
+			<label class="text-sm font-semibold md:col-span-2">Estimated customer accounts<input class="field" type="number" min="0" bind:value={form.estimatedAccounts} /></label>
 		</div>
 	{:else if step === 2}<div class="grid gap-5 md:grid-cols-2">
 			<label class="text-sm font-semibold"

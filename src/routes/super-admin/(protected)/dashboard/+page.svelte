@@ -1,14 +1,21 @@
 <script lang="ts">
 	import './page.css';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { PlatformDashboard } from '$lib/platform/types';
+	import type { PlatformDashboard, PlatformUtility } from '$lib/platform/types';
 
 	let dashboard = $state<PlatformDashboard | null>(null);
 	let loading = $state(true);
 	let errorMessage = $state('');
+	let utilities = $state<PlatformUtility[]>([]);
+	let from = $state(page.url.searchParams.get('from') ?? '');
+	let until = $state(page.url.searchParams.get('until') ?? '');
+	let tenantId = $state(page.url.searchParams.get('tenantId') ?? '');
+	let region = $state(page.url.searchParams.get('region') ?? '');
+	let status = $state(page.url.searchParams.get('status') ?? '');
 	const role = $derived(page.data.platformSession?.role);
 	const roleLabel = $derived(role?.replaceAll('-', ' ') ?? 'platform user');
 
@@ -16,7 +23,7 @@
 		loading = true;
 		errorMessage = '';
 		try {
-			dashboard = await platformService.dashboard();
+			dashboard = await platformService.dashboard({ from, until, tenantId, region, status });
 		} catch (error) {
 			errorMessage =
 				error instanceof Error ? error.message : 'Unable to load the platform overview.';
@@ -24,7 +31,16 @@
 			loading = false;
 		}
 	}
-	onMount(loadDashboard);
+	async function applyFilters() {
+		const params = new URLSearchParams();
+		for (const [key, value] of Object.entries({ from, until, tenantId, region, status })) if (value) params.set(key, value);
+		await goto(`/super-admin/dashboard${params.size ? `?${params}` : ''}`, { replaceState: true, keepFocus: true, noScroll: true });
+		await loadDashboard();
+	}
+	onMount(async () => {
+		try { utilities = (await platformService.utilities({ pageSize: 100 })).items; } catch { utilities = []; }
+		await loadDashboard();
+	});
 	const utilityCards = $derived(
 		dashboard
 			? [
@@ -54,6 +70,15 @@
 				]
 			: []
 	);
+	const tenantDataCards = $derived(dashboard ? [
+		{ label: 'Customers', value: dashboard.customers, href: '/super-admin/reports' },
+		{ label: 'Meters', value: dashboard.meters, href: '/super-admin/reports' },
+		{ label: 'Routes', value: dashboard.routes, href: '/super-admin/reports' },
+		{ label: 'Readings', value: dashboard.readings, href: '/super-admin/reports' },
+		{ label: 'Billing cycles', value: dashboard.billingCycles, href: '/super-admin/reports' },
+		{ label: 'Open exceptions', value: dashboard.openExceptions, href: '/super-admin/monitoring' },
+		{ label: 'Support tickets', value: dashboard.supportTickets, href: '/super-admin/support' }
+	] : []);
 	const financeCards = $derived(
 		dashboard?.financialDataVisible
 			? [
@@ -74,6 +99,14 @@
 	</div>
 	<a href="/super-admin/utilities" class="platform-hero-action relative z-10">Manage utilities <span aria-hidden="true">→</span></a>
 </header>
+<form class="mb-7 grid gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-4 md:grid-cols-6" onsubmit={(event) => { event.preventDefault(); applyFilters(); }}>
+	<label class="text-xs text-slate-300">From<input class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2" type="date" bind:value={from} /></label>
+	<label class="text-xs text-slate-300">Until (exclusive)<input class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2" type="date" bind:value={until} /></label>
+	<label class="text-xs text-slate-300">Utility<select class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2" bind:value={tenantId}><option value="">All utilities</option>{#each utilities as item}<option value={String(item.id)}>{item.displayName}</option>{/each}</select></label>
+	<label class="text-xs text-slate-300">Region<input class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2" bind:value={region} placeholder="All regions" /></label>
+	<label class="text-xs text-slate-300">Status<select class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2" bind:value={status}><option value="">All statuses</option><option>Active</option><option>Onboarding</option><option>Migration Review</option><option>Suspended</option></select></label>
+	<button class="self-end rounded-lg bg-cyan-600 px-4 py-2 font-semibold" type="submit" disabled={loading}>Apply filters</button>
+</form>
 {#if loading}<StatePanel
 		variant="loading"
 		title="Loading platform metrics"
@@ -122,6 +155,12 @@
 			</div>{/each}
 		</div>
 		{#if !dashboard.financialDataVisible}<p class="mt-3 text-xs text-slate-500">Financial amounts are restricted to Super Admin and Finance Admin roles.</p>{/if}
+	</section>
+	<section class="mt-7" aria-labelledby="tenant-data-heading">
+		<div class="mb-4 flex items-end justify-between gap-3"><h2 id="tenant-data-heading" class="text-xl font-semibold text-white">Tenant operations</h2><p class="text-xs text-slate-400">Generated {new Date(dashboard.generatedAt).toLocaleString()}</p></div>
+		<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{#each tenantDataCards as card}<a class="platform-metric" href={card.href}><p class="text-sm font-medium text-slate-300">{card.label}</p><p class="mt-5 text-3xl font-semibold text-white">{card.value.toLocaleString()}</p><p class="mt-4 text-xs text-slate-400">Persisted records <span aria-hidden="true">→</span></p></a>{/each}
+			{#if dashboard.financialDataVisible}<div class="platform-metric"><p class="text-sm font-medium text-slate-300">Collection rate</p><p class="mt-5 text-3xl font-semibold text-white">{dashboard.collectionRate ? `${dashboard.collectionRate}%` : 'Not available yet'}</p><p class="mt-4 text-xs text-slate-400">Recorded payments ÷ generated bill amount</p></div>{/if}
+		</div>
 	</section>
 	<div class="mt-7 grid gap-5 xl:grid-cols-2">
 		<section class="platform-panel">

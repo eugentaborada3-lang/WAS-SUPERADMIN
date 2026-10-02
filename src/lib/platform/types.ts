@@ -24,6 +24,11 @@ export interface PlatformUtility {
 	displayName: string;
 	utilityType: string;
 	officeAddress: string;
+	region: string;
+	province: string;
+	city: string;
+	authorityReference: string;
+	estimatedAccounts: number;
 	primaryContactName: string;
 	primaryContactPhone: string;
 	primaryContactEmail: string;
@@ -43,13 +48,35 @@ export interface PlatformUtilitySettings {
 	assignedOwner: string;
 }
 
+export interface UtilityUsageMetric {
+	key: 'accounts' | 'meters' | 'staff' | 'billing_cycles' | 'storage';
+	label: string;
+	current: number | null;
+	limit: number;
+	unit: string;
+	state: 'Normal' | 'Warning' | 'Exceeded' | 'Not configured' | 'Not measured';
+	measured: boolean;
+}
+
+export interface UtilityUsage {
+	metrics: UtilityUsageMetric[];
+}
+
 export interface UtilityActivationReadiness {
 	ready: boolean;
 	blockers: string[];
 	serviceAreaCount: number;
 	paymentTestPassed: boolean;
 	realPaymentCollectionReady: boolean;
+	requiredDocumentAccepted: boolean;
 }
+
+export interface UtilityImportIssue { row: number; field: string; message: string }
+export interface UtilityImportValidation { batchId:number; status:string; rowCount:number; validCount:number; errorCount:number; errors:UtilityImportIssue[]; preview:{slug:string;legalName:string;displayName:string;region:string;primaryContactEmail:string;serviceAreaCount:number;estimatedAccounts:number}[] }
+export interface UtilityImportBatch { id:number; createdAt:string; fileName:string; status:string; rowCount:number; validCount:number; errorCount:number; committedAt?:string }
+export interface OnboardingDocument { id:number; createdAt:string; tenantId:number; category:string; originalFileName:string; mimeType:string; byteSize:number; status:'Draft'|'Submitted'|'Accepted'|'Rejected'|'Replaced'; scannerStatus:string; rejectionReason:string; submittedAt?:string; reviewedAt?:string }
+export interface StarterTariffValidation { batchId:number; status:string; rowCount:number; validCount:number; errorCount:number; errors:UtilityImportIssue[]; draft?:Record<string,unknown>; simulation?:{consumption:string;total:string} }
+export interface StarterTariffImportBatch { id:number; createdAt:string; fileName:string; status:string; rowCount:number; validCount:number; errorCount:number; committedAt?:string; tariffVersionId?:number }
 
 export interface PlatformServiceArea {
 	id: number;
@@ -78,7 +105,10 @@ export interface PaymentSetupConfig {
 	revision: number;
 }
 
-export type PaymentSetupInput = Omit<PaymentSetupConfig, 'id' | 'tenantId' | 'channel' | 'status' | 'lastTestStatus' | 'lastTestAt' | 'revision'> & {reason:string};
+export type PaymentSetupInput = Omit<
+	PaymentSetupConfig,
+	'id' | 'tenantId' | 'channel' | 'status' | 'lastTestStatus' | 'lastTestAt' | 'revision'
+> & { reason: string };
 
 export interface PaymentSetupState {
 	config: PaymentSetupConfig | null;
@@ -166,6 +196,15 @@ export interface PlatformLedgerPayment {
 export interface PlatformLedgerPaymentDetail extends PlatformLedgerPayment {
 	providerTransactionMasked: string;
 	evidenceState: string;
+	reversals: {
+		id: number;
+		status: string;
+		reason: string;
+		resolutionNote?: string;
+		originalAmount: string;
+		providerState: string;
+		createdAt: string;
+	}[];
 }
 
 export interface PlatformServiceHealth {
@@ -201,6 +240,37 @@ export interface PlatformReportResult {
 	generatedAt: string;
 	rows: { utilityId: number; utilityName: string; count: number }[];
 	total: number;
+}
+
+export interface PlatformReportSchedule {
+	id: number;
+	reportType: PlatformReportResult['type'];
+	filtersJson: string;
+	recipientIdsJson: string;
+	format: 'csv' | 'xlsx' | 'pdf';
+	frequency: 'daily' | 'weekly' | 'monthly';
+	timezone: string;
+	nextRunAt: string;
+	status: string;
+	runs: {
+		id: number;
+		status: string;
+		artifactName?: string;
+		rowCount: number;
+		deliveryStatus: string;
+		errorMessage?: string;
+		errorCategory?: string;
+		originalRunId?: number;
+		attemptNumber: number;
+		createdAt: string;
+	}[];
+}
+
+export interface PlatformReportRecipient {
+	id: number;
+	fullName: string;
+	role: string;
+	emailMasked: string;
 }
 
 export interface PlatformSupportCase {
@@ -255,6 +325,7 @@ export interface PlatformPage<T> {
 }
 
 export interface PlatformDashboard {
+	generatedAt: string;
 	totalUtilities: number;
 	activeUtilities: number;
 	suspendedUtilities: number;
@@ -268,6 +339,14 @@ export interface PlatformDashboard {
 	recordedPayments: number;
 	totalPaymentVolume: string;
 	recordedServiceFees: string;
+	customers: number;
+	meters: number;
+	routes: number;
+	readings: number;
+	billingCycles: number;
+	openExceptions: number;
+	supportTickets: number;
+	collectionRate?: string;
 	financialDataVisible: boolean;
 	recentUtilities: PlatformUtility[];
 	recentAudit: PlatformAuditEntry[];
@@ -280,6 +359,11 @@ export interface UtilityOnboardingInput {
 	displayName: string;
 	utilityType: string;
 	officeAddress: string;
+	region: string;
+	province: string;
+	city: string;
+	authorityReference: string;
+	estimatedAccounts: number;
 	primaryContactName: string;
 	primaryContactPhone: string;
 	primaryContactEmail: string;
@@ -302,5 +386,20 @@ export interface PlatformRoleTemplate {
 	permissions: string[];
 }
 
-export interface OnboardingDraft { id:number; name:string; slug:string; status:string; version:number; updatedAt:string; submittedAt?:string; payload:UtilityOnboardingInput }
-export interface AuditRetentionPolicy { id:number; retentionDays:number; legalHold:boolean; legalHoldReason:string; updatedAt:string }
+export interface OnboardingDraft {
+	id: number;
+	name: string;
+	slug: string;
+	status: string;
+	version: number;
+	updatedAt: string;
+	submittedAt?: string;
+	payload: UtilityOnboardingInput;
+}
+export interface AuditRetentionPolicy {
+	id: number;
+	retentionDays: number;
+	legalHold: boolean;
+	legalHoldReason: string;
+	updatedAt: string;
+}

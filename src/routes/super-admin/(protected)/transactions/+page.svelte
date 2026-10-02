@@ -15,6 +15,9 @@
 	let exportReason = $state('');
 	let exporting = $state(false);
 	let successMessage = $state('');
+	let currentRole = $state('');
+	let reversalReason = $state('');
+	let mfaCode = $state('');
 
 	async function load() {
 		loading = true;
@@ -86,7 +89,19 @@
 		}
 	}
 
-	onMount(load);
+	async function confirmReversal(id: number) {
+		if (!confirm('Confirm platform review of this settled reversal? This does not claim that the provider returned funds.')) return;
+		exporting = true; errorMessage = ''; successMessage = '';
+		try {
+			await platformService.confirmSettledReversal(id, reversalReason, mfaCode);
+			if (selected) selected = await platformService.ledgerPayment(selected.id);
+			reversalReason = ''; mfaCode = '';
+			successMessage = 'Platform confirmation recorded. Provider confirmation is still pending.';
+		} catch (error) { errorMessage = error instanceof Error ? error.message : 'Unable to confirm the reversal.'; }
+		finally { exporting = false; }
+	}
+
+	onMount(async () => { try { currentRole = (await platformService.session()).role; } catch {} await load(); });
 </script>
 
 <svelte:head><title>Utility payment records | Water Assistant System</title></svelte:head>
@@ -151,5 +166,6 @@
 			<p><span class="block text-slate-500">Settlement batch</span>{selected.settlementBatch || 'Not available'}</p><p><span class="block text-slate-500">Method</span>{selected.method || 'Unknown'}</p>
 		</div>
 		<div class="mt-5 rounded-xl border border-amber-800 bg-amber-950/30 p-4 text-sm text-amber-100"><strong>Provider verified: No · Settlement verified: No</strong><p class="mt-1">{selected.evidenceState}</p></div>
+		<section class="mt-5 rounded-xl border border-slate-700 p-4"><h3 class="font-semibold text-white">Reversal requests</h3>{#if selected.reversals.length === 0}<p class="mt-2 text-sm text-slate-400">No reversal request is linked to this payment.</p>{:else}<div class="mt-3 space-y-3">{#each selected.reversals as reversal}<article class="rounded-lg border border-slate-700 p-3"><div class="flex justify-between gap-3"><div><p class="text-sm text-white">{reversal.reason}</p><p class="mt-1 text-xs text-slate-400">{reversal.providerState}</p></div><span class="text-xs text-cyan-300">{reversal.status}</span></div>{#if reversal.status === 'Awaiting Platform Confirmation' && (currentRole === 'finance-admin' || currentRole === 'super-admin')}<div class="mt-3 grid gap-2 sm:grid-cols-2"><label class="text-xs text-slate-400">Required reason<input minlength="10" bind:value={reversalReason} class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-white" /></label><label class="text-xs text-slate-400">Authenticator or recovery code<input bind:value={mfaCode} autocomplete="one-time-code" class="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 p-2 text-white" /></label></div><button type="button" disabled={exporting || reversalReason.trim().length < 10 || mfaCode.trim().length < 6} onclick={() => confirmReversal(reversal.id)} class="mt-3 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40">Confirm platform review</button>{/if}</article>{/each}</div>{/if}</section>
 	</div>
 </div>{/if}

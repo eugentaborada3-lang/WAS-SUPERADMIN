@@ -237,7 +237,7 @@
 				<p class="mt-2 text-xs leading-5 text-slate-400">
 					Keep this key private. This setup session expires shortly.
 				</p>
-				<form class="mt-6 space-y-4" novalidate onsubmit={submitEnrollment}>
+				<form method="post" class="mt-6 space-y-4" novalidate onsubmit={submitEnrollment}>
 					<label class="block text-sm font-medium text-slate-200"
 						>Six-digit code<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 font-mono text-white transition-colors outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
@@ -267,7 +267,7 @@
 					onclick={startOver}>Back to sign in</button
 				>
 			{:else if challengeToken}
-				<form class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitMFA}>
+				<form method="post" class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitMFA}>
 					<label class="block text-sm font-medium text-slate-200"
 						>Authenticator or recovery code<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 font-mono tracking-[0.25em] text-white transition-colors outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"
@@ -291,7 +291,7 @@
 					>
 				</form>
 			{:else}
-				<form class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitPassword}>
+				<form method="post" class="mt-8 space-y-5" aria-busy={submitting} onsubmit={submitPassword}>
 					<label class="block text-sm font-medium text-slate-200"
 						>Email<input
 							class="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 text-white transition-colors outline-none placeholder:text-slate-500 focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20"

@@ -3,13 +3,23 @@
 	import { onMount } from 'svelte';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { PlatformAuditEntry, PlatformUtility, UtilityActivationReadiness, PlatformServiceArea } from '$lib/platform/types';
+	import type { OnboardingDocument, PlatformAuditEntry, PlatformUtility, StarterTariffImportBatch, StarterTariffValidation, UtilityActivationReadiness, PlatformServiceArea, UtilityUsage } from '$lib/platform/types';
 
 	const utilityId = $derived(Number(page.params.id));
 	let utility = $state<PlatformUtility | null>(null);
 	let audit = $state<PlatformAuditEntry[]>([]);
 	let readiness = $state<UtilityActivationReadiness | null>(null);
 	let serviceAreas = $state<PlatformServiceArea[]>([]);
+	let usage = $state<UtilityUsage | null>(null);
+	let documents = $state<OnboardingDocument[]>([]);
+	let tariffHistory = $state<StarterTariffImportBatch[]>([]);
+	let tariffValidation = $state<StarterTariffValidation | null>(null);
+	let documentFile = $state<File | null>(null);
+	let documentCategory = $state('legal_authority');
+	let documentReplaceId = $state<number | undefined>(undefined);
+	let tariffFile = $state<File | null>(null);
+	let tariffWorksheet = $state('');
+	let documentRejectReasons = $state<Record<number, string>>({});
 	let newAreaName = $state('');
 	let newAreaDescription = $state('');
 	let loading = $state(true);
@@ -23,6 +33,11 @@
 	let primaryContactEmail = $state('');
 	let primaryContactPhone = $state('');
 	let utilityType = $state('');
+	let region = $state('');
+	let province = $state('');
+	let city = $state('');
+	let authorityReference = $state('');
+	let estimatedAccounts = $state(0);
 	let enabledModules = $state<string[]>([]);
 	let nextStatus = $state<PlatformUtility['status']>('Active');
 	let reason = $state('');
@@ -66,6 +81,11 @@
 		primaryContactEmail = value.primaryContactEmail;
 		primaryContactPhone = value.primaryContactPhone;
 		utilityType = value.utilityType;
+		region = value.region;
+		province = value.province;
+		city = value.city;
+		authorityReference = value.authorityReference;
+		estimatedAccounts = value.estimatedAccounts;
 		enabledModules = value.enabledModules.split(',').filter((name) => name && name !== 'payments');
 		nextStatus = value.status;
 	}
@@ -73,17 +93,23 @@
 		loading = true;
 		errorMessage = '';
 		try {
-			const [record, log, settings, activation, areas] = await Promise.all([
+			const [record, log, settings, activation, areas, usageSnapshot, documentItems, tariffItems] = await Promise.all([
 				platformService.utility(utilityId),
 				page.data.platformSession?.role === 'support-agent' ? Promise.resolve({ items: [] as PlatformAuditEntry[] }) : platformService.audit({ tenantId: utilityId, pageSize: 10 }),
 				platformService.utilitySettings(utilityId),
 				platformService.activationReadiness(utilityId),
-				platformService.utilityServiceAreas(utilityId)
+				platformService.utilityServiceAreas(utilityId),
+				platformService.utilityUsage(utilityId),
+				platformService.onboardingDocuments(utilityId),
+				platformService.starterTariffHistory(utilityId)
 			]);
 			populate(record);
 			audit = log.items;
 			readiness = activation;
 			serviceAreas = areas;
+			usage = usageSnapshot;
+			documents = documentItems;
+			tariffHistory = tariffItems;
 			currency = settings.currency;
 			timezone = settings.timezone;
 			maximumAccounts = settings.maximumAccounts;
@@ -114,6 +140,11 @@
 				displayName,
 				legalName,
 				officeAddress,
+				region,
+				province,
+				city,
+				authorityReference,
+				estimatedAccounts,
 				primaryContactName,
 				primaryContactEmail,
 				primaryContactPhone,
@@ -182,6 +213,7 @@
 			storageLimitGb = settings.storageLimitGb;
 			slaTier = settings.slaTier;
 			assignedOwner = settings.assignedOwner;
+			usage = await platformService.utilityUsage(utilityId);
 			settingsReason = '';
 			successMessage = 'Tenant settings saved and audited.';
 			await loadAudit();
@@ -214,6 +246,72 @@
 			successMessage = 'Finance-confirmed suspension was recorded. Payment settlement status was not changed.';
 			await loadAudit();
 		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to suspend utility.'; }
+		finally { saving = false; }
+	}
+	function saveBlob(blob: Blob, fileName: string) {
+		const url = URL.createObjectURL(blob);
+		const link = document.createElement('a');
+		link.href = url; link.download = fileName; link.click();
+		URL.revokeObjectURL(url);
+	}
+	async function uploadDocument() {
+		if (!documentFile) { errorMessage = 'Choose a PDF, PNG, or JPEG document.'; return; }
+		saving = true; errorMessage = ''; successMessage = '';
+		try {
+			await platformService.uploadOnboardingDocument(utilityId, documentCategory, documentFile, documentReplaceId);
+			documents = await platformService.onboardingDocuments(utilityId);
+			documentFile = null; documentReplaceId = undefined;
+			successMessage = 'Document uploaded as a draft. Malware scanning is not connected.';
+			await loadAudit();
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to upload document.'; }
+		finally { saving = false; }
+	}
+	async function submitDocument(id: number) {
+		saving = true; errorMessage = ''; successMessage = '';
+		try { await platformService.submitOnboardingDocument(id); documents = await platformService.onboardingDocuments(utilityId); successMessage = 'Document submitted for review.'; await loadAudit(); }
+		catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to submit document.'; }
+		finally { saving = false; }
+	}
+	async function reviewDocument(id: number, decision: 'Accepted' | 'Rejected') {
+		const reviewReason = documentRejectReasons[id]?.trim() ?? '';
+		if (decision === 'Rejected' && !reviewReason) { errorMessage = 'A rejection reason is required.'; return; }
+		if (!confirm(`${decision === 'Accepted' ? 'Accept' : 'Reject'} this onboarding document?`)) return;
+		saving = true; errorMessage = ''; successMessage = '';
+		try {
+			await platformService.reviewOnboardingDocument(id, decision, reviewReason);
+			documents = await platformService.onboardingDocuments(utilityId);
+			readiness = await platformService.activationReadiness(utilityId);
+			successMessage = `Document ${decision.toLowerCase()} and audited.`;
+			await loadAudit();
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to review document.'; }
+		finally { saving = false; }
+	}
+	async function downloadDocument(item: OnboardingDocument) {
+		try { saveBlob(await platformService.downloadOnboardingDocument(item.id), item.originalFileName); }
+		catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to download document.'; }
+	}
+	async function downloadTariffTemplate(format: 'csv' | 'xlsx') {
+		try { saveBlob(await platformService.starterTariffTemplate(format), `starter-tariff-template.${format}`); }
+		catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to download template.'; }
+	}
+	async function validateTariff() {
+		if (!tariffFile) { errorMessage = 'Choose a CSV or XLSX starter-tariff file.'; return; }
+		saving = true; errorMessage = ''; tariffValidation = null;
+		try { tariffValidation = await platformService.validateStarterTariff(utilityId, tariffFile, tariffWorksheet); }
+		catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to validate starter tariff.'; }
+		finally { saving = false; }
+	}
+	async function commitTariff() {
+		if (!tariffFile || !tariffValidation || tariffValidation.errorCount > 0) return;
+		if (!confirm('Create this tenant-owned tariff draft? It will not be published or activated.')) return;
+		saving = true; errorMessage = ''; successMessage = '';
+		try {
+			await platformService.commitStarterTariff(tariffValidation.batchId, tariffFile);
+			tariffHistory = await platformService.starterTariffHistory(utilityId);
+			tariffFile = null; tariffValidation = null;
+			successMessage = 'Starter tariff imported as a draft. Utility GM approval and publication remain required.';
+			await loadAudit();
+		} catch (e) { errorMessage = e instanceof Error ? e.message : 'Unable to create tariff draft.'; }
 		finally { saving = false; }
 	}
 	onMount(load);
@@ -274,6 +372,11 @@
 					>Contact email<input class="field" type="email" bind:value={primaryContactEmail} /></label
 				><label class="text-sm font-semibold"
 					>Contact phone<input class="field" bind:value={primaryContactPhone} /></label
+				><label class="text-sm font-semibold">Region<input class="field" bind:value={region} /></label
+				><label class="text-sm font-semibold">Province<input class="field" bind:value={province} /></label
+				><label class="text-sm font-semibold">City / municipality<input class="field" bind:value={city} /></label
+				><label class="text-sm font-semibold">Authority reference<input class="field" bind:value={authorityReference} /></label
+				><label class="text-sm font-semibold">Estimated customer accounts<input class="field" type="number" min="0" bind:value={estimatedAccounts} /></label
 				><label class="text-sm font-semibold md:col-span-2"
 					>Office address<textarea class="field min-h-24" bind:value={officeAddress}
 					></textarea></label
@@ -309,6 +412,18 @@
 			{/if}
 		</section>
 		<div class="space-y-6">
+			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+				<h2 class="font-bold">Persisted usage and limits</h2>
+				<p class="mt-2 text-sm text-slate-400">Warnings begin at 80% of a configured limit. Storage remains unmeasured until a storage provider reports usage.</p>
+				<div class="mt-4 grid gap-3 sm:grid-cols-2">
+					{#each usage?.metrics ?? [] as metric}
+						<article class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+							<div class="flex items-center justify-between gap-3"><h3 class="text-sm font-semibold">{metric.label}</h3><span class={`rounded-full px-2 py-1 text-[10px] font-semibold ${metric.state==='Exceeded'?'bg-rose-950 text-rose-200':metric.state==='Warning'?'bg-amber-950 text-amber-200':'bg-slate-800 text-slate-300'}`}>{metric.state}</span></div>
+							<p class="mt-3 text-2xl font-bold">{metric.measured ? metric.current?.toLocaleString() : 'Not available'}{#if metric.limit > 0}<span class="text-sm font-normal text-slate-500"> / {metric.limit.toLocaleString()} {metric.unit}</span>{/if}</p>
+						</article>
+					{/each}
+				</div>
+			</section>
 			{#if page.data.platformSession?.role === 'finance-admin' && utility.status === 'Active'}
 				<section class="rounded-2xl border border-amber-700 bg-amber-950/20 p-6">
 					<h2 class="font-bold">Finance-confirmed suspension</h2>
@@ -324,6 +439,30 @@
 				{#if canManage}<label class="mt-4 block text-sm">New area name<input class="field" bind:value={newAreaName} maxlength="191" /></label>
 					<label class="mt-3 block text-sm">Description (optional)<input class="field" bind:value={newAreaDescription} maxlength="500" /></label>
 					<button class="mt-4 rounded-xl border border-cyan-700 px-4 py-2 text-sm font-semibold text-cyan-200 disabled:opacity-50" onclick={addArea} disabled={saving || !newAreaName.trim()}>Add service area</button>{/if}
+			</section>
+			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+				<h2 class="font-bold">Onboarding documents</h2>
+				<p class="mt-2 text-sm text-slate-400">A reviewed legal-authority document is required for activation. Files use local development storage; malware scanning is not connected.</p>
+				{#if documents.length}<div class="mt-4 space-y-3">{#each documents as item (item.id)}
+					<article class="rounded-xl border border-slate-800 p-4 text-sm">
+						<div class="flex flex-wrap items-start justify-between gap-2"><div><strong>{item.originalFileName}</strong><p class="text-xs text-slate-400">{item.category.replaceAll('_', ' ')} · {(item.byteSize / 1024).toFixed(1)} KB · {item.scannerStatus}</p></div><span class="rounded-full bg-slate-800 px-2 py-1 text-xs">{item.status}</span></div>
+						{#if item.rejectionReason}<p class="mt-2 text-rose-200">Reason: {item.rejectionReason}</p>{/if}
+						<div class="mt-3 flex flex-wrap gap-2"><button class="rounded border border-slate-700 px-3 py-1.5" onclick={() => downloadDocument(item)}>Download</button>
+							{#if canManage && item.status === 'Draft'}<button class="rounded border border-cyan-700 px-3 py-1.5 text-cyan-200" disabled={saving} onclick={() => submitDocument(item.id)}>Submit for review</button>{/if}
+							{#if canManage && item.status !== 'Replaced'}<button class="rounded border border-slate-700 px-3 py-1.5" onclick={() => { documentReplaceId = item.id; documentCategory = item.category; }}>Replace</button>{/if}
+						</div>
+						{#if canManage && item.status === 'Submitted'}<label class="mt-3 block text-xs">Rejection reason<textarea class="field min-h-16" value={documentRejectReasons[item.id] ?? ''} oninput={(event) => documentRejectReasons = {...documentRejectReasons, [item.id]: event.currentTarget.value}}></textarea></label><div class="mt-2 flex gap-2"><button class="rounded bg-emerald-700 px-3 py-1.5" disabled={saving} onclick={() => reviewDocument(item.id, 'Accepted')}>Accept</button><button class="rounded bg-rose-800 px-3 py-1.5" disabled={saving} onclick={() => reviewDocument(item.id, 'Rejected')}>Reject</button></div>{/if}
+					</article>
+				{/each}</div>{:else}<p class="mt-4 text-sm text-amber-200">No onboarding documents uploaded.</p>{/if}
+				{#if canManage}<div class="mt-5 grid gap-3">{#if documentReplaceId}<p class="rounded-lg border border-amber-800 bg-amber-950/20 p-3 text-sm text-amber-200">Replacing document #{documentReplaceId}. The prior version remains in history as Replaced. <button class="underline" type="button" onclick={() => documentReplaceId = undefined}>Cancel</button></p>{/if}<label class="text-sm font-semibold">Category<select class="field" bind:value={documentCategory}><option value="legal_authority">Legal authority</option><option value="service_area_evidence">Service-area evidence</option><option value="payment_onboarding">Payment onboarding</option><option value="other">Other</option></select></label><label class="text-sm font-semibold">PDF, PNG, or JPEG<input class="field" type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" onchange={(event) => documentFile = event.currentTarget.files?.[0] ?? null} /></label><button class="rounded-xl border border-cyan-700 px-4 py-2 font-semibold text-cyan-200 disabled:opacity-50" disabled={saving || !documentFile} onclick={uploadDocument}>{documentReplaceId ? 'Upload replacement draft' : 'Upload draft'}</button></div>{/if}
+			</section>
+			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
+				<h2 class="font-bold">Starter tariff import</h2>
+				<p class="mt-2 text-sm text-slate-400">Validate a CSV or XLSX file before creating a tenant-owned draft. Import never approves or publishes a tariff.</p>
+				<div class="mt-3 flex gap-2"><button class="rounded border border-slate-700 px-3 py-1.5 text-sm" onclick={() => downloadTariffTemplate('csv')}>CSV template</button><button class="rounded border border-slate-700 px-3 py-1.5 text-sm" onclick={() => downloadTariffTemplate('xlsx')}>XLSX template</button></div>
+				{#if canManage}<div class="mt-4 grid gap-3"><label class="text-sm font-semibold">Import file<input class="field" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange={(event) => { tariffFile = event.currentTarget.files?.[0] ?? null; tariffValidation = null; }} /></label><label class="text-sm font-semibold">Worksheet (optional)<input class="field" bind:value={tariffWorksheet} /></label><button class="rounded-xl border border-cyan-700 px-4 py-2 font-semibold text-cyan-200 disabled:opacity-50" disabled={saving || !tariffFile} onclick={validateTariff}>Validate import</button></div>{/if}
+				{#if tariffValidation}<div class="mt-4 rounded-xl border border-slate-700 p-4 text-sm"><p><strong>{tariffValidation.validCount}</strong> valid rows · <strong>{tariffValidation.errorCount}</strong> errors</p>{#if tariffValidation.simulation}<p class="mt-2 text-slate-300">Deterministic preview at {tariffValidation.simulation.consumption} m³: PHP {tariffValidation.simulation.total}</p>{/if}{#if tariffValidation.errors.length}<ul class="mt-2 list-disc pl-5 text-rose-200">{#each tariffValidation.errors.slice(0, 10) as issue}<li>Row {issue.row}, {issue.field}: {issue.message}</li>{/each}</ul>{/if}{#if tariffValidation.errorCount === 0}<button class="mt-3 rounded bg-cyan-600 px-4 py-2 font-semibold disabled:opacity-50" disabled={saving} onclick={commitTariff}>Create tariff draft</button>{/if}</div>{/if}
+				{#if tariffHistory.length}<ul class="mt-4 space-y-2 text-xs text-slate-400">{#each tariffHistory as batch (batch.id)}<li>{batch.fileName} · {batch.status} · {new Date(batch.createdAt).toLocaleString()}</li>{/each}</ul>{/if}
 			</section>
 			<section class="rounded-2xl border border-slate-800 bg-slate-900 p-6">
 				<h2 class="font-bold">Tenant settings</h2>
