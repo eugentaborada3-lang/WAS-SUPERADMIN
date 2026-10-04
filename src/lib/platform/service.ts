@@ -1,4 +1,11 @@
-import { API_BASE_URL, ApiError, apiDownload, apiFetch, isLiveApiEnabled, type ApiEnvelope } from '$lib/api';
+import {
+	API_BASE_URL,
+	ApiError,
+	apiDownload,
+	apiFetch,
+	isLiveApiEnabled,
+	type ApiEnvelope
+} from '$lib/api';
 import type {
 	PlatformAuditEntry,
 	PlatformDashboard,
@@ -33,7 +40,8 @@ import type {
 	PlatformSupportCase,
 	PlatformSupportDetail,
 	PlatformSupportNote,
-	PlatformUtilityUser
+	PlatformUtilityUser,
+	PlatformNotificationPage
 } from './types';
 
 const required = <T>(value: T | null, feature: string): T => {
@@ -90,9 +98,25 @@ export const platformService = {
 	async logout() {
 		await apiFetch('/api/platform/auth/logout', { method: 'POST' });
 	},
+	async notifications(page = 1, pageSize = 20) {
+		return required(
+			await apiFetch<PlatformNotificationPage>(
+				`/api/platform/notifications?page=${page}&pageSize=${pageSize}`
+			),
+			'Platform notifications'
+		);
+	},
+	async markNotificationRead(id: number) {
+		await apiFetch(`/api/platform/notifications/${id}/read`, { method: 'POST' });
+	},
+	async markAllNotificationsRead() {
+		await apiFetch('/api/platform/notifications/read-all', { method: 'POST' });
+	},
 	async dashboard(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
-		Object.entries(query).forEach(([key, value]) => { if (value !== undefined && value !== '') params.set(key, String(value)); });
+		Object.entries(query).forEach(([key, value]) => {
+			if (value !== undefined && value !== '') params.set(key, String(value));
+		});
 		return required(
 			await apiFetch<PlatformDashboard>(`/api/platform/dashboard?${params}`),
 			'Platform dashboard'
@@ -383,15 +407,33 @@ export const platformService = {
 		return apiDownload(`/api/platform/utility-imports/template?format=${format}`);
 	},
 	async utilityImportHistory() {
-		return required(await apiFetch<UtilityImportBatch[]>('/api/platform/utility-imports'), 'Utility import history');
+		return required(
+			await apiFetch<UtilityImportBatch[]>('/api/platform/utility-imports'),
+			'Utility import history'
+		);
 	},
 	async validateUtilityImport(file: File, worksheet = '') {
-		const body = new FormData(); body.set('file', file); if (worksheet) body.set('worksheet', worksheet);
-		return required(await apiFetch<UtilityImportValidation>('/api/platform/utility-imports/validate', { method: 'POST', body }), 'Utility import validation');
+		const body = new FormData();
+		body.set('file', file);
+		if (worksheet) body.set('worksheet', worksheet);
+		return required(
+			await apiFetch<UtilityImportValidation>('/api/platform/utility-imports/validate', {
+				method: 'POST',
+				body
+			}),
+			'Utility import validation'
+		);
 	},
 	async commitUtilityImport(batchId: number, file: File) {
-		const body = new FormData(); body.set('file', file);
-		return required(await apiFetch<UtilityImportBatch>(`/api/platform/utility-imports/${batchId}/commit`, { method: 'POST', body }), 'Utility import commit');
+		const body = new FormData();
+		body.set('file', file);
+		return required(
+			await apiFetch<UtilityImportBatch>(`/api/platform/utility-imports/${batchId}/commit`, {
+				method: 'POST',
+				body
+			}),
+			'Utility import commit'
+		);
 	},
 	async exportUtilities(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
@@ -424,28 +466,77 @@ export const platformService = {
 		);
 	},
 	async onboardingDocuments(id: number) {
-		return required(await apiFetch<OnboardingDocument[]>(`/api/platform/onboarding-documents?tenantId=${id}`), 'Onboarding documents');
+		return required(
+			await apiFetch<OnboardingDocument[]>(`/api/platform/onboarding-documents?tenantId=${id}`),
+			'Onboarding documents'
+		);
 	},
 	async uploadOnboardingDocument(id: number, category: string, file: File, replaceId?: number) {
-		const body = new FormData(); body.set('tenantId', String(id)); body.set('category', category); body.set('file', file); if (replaceId) body.set('replaceId', String(replaceId));
-		return required(await apiFetch<OnboardingDocument>('/api/platform/onboarding-documents', { method: 'POST', body }), 'Onboarding document upload');
+		const body = new FormData();
+		body.set('tenantId', String(id));
+		body.set('category', category);
+		body.set('file', file);
+		if (replaceId) body.set('replaceId', String(replaceId));
+		return required(
+			await apiFetch<OnboardingDocument>('/api/platform/onboarding-documents', {
+				method: 'POST',
+				body
+			}),
+			'Onboarding document upload'
+		);
 	},
 	async submitOnboardingDocument(id: number) {
-		return required(await apiFetch<OnboardingDocument>(`/api/platform/onboarding-documents/${id}/submit`, { method: 'POST' }), 'Onboarding document submission');
+		return required(
+			await apiFetch<OnboardingDocument>(`/api/platform/onboarding-documents/${id}/submit`, {
+				method: 'POST'
+			}),
+			'Onboarding document submission'
+		);
 	},
 	async reviewOnboardingDocument(id: number, decision: 'Accepted' | 'Rejected', reason = '') {
-		return required(await apiFetch<OnboardingDocument>(`/api/platform/onboarding-documents/${id}/review`, { method: 'POST', body: JSON.stringify({ decision, reason }) }), 'Onboarding document review');
+		return required(
+			await apiFetch<OnboardingDocument>(`/api/platform/onboarding-documents/${id}/review`, {
+				method: 'POST',
+				body: JSON.stringify({ decision, reason })
+			}),
+			'Onboarding document review'
+		);
 	},
-	async downloadOnboardingDocument(id: number) { return apiDownload(`/api/platform/onboarding-documents/${id}/download`); },
-	async starterTariffTemplate(format: 'csv' | 'xlsx') { return apiDownload(`/api/platform/starter-tariffs/template?format=${format}`); },
-	async starterTariffHistory(id: number) { return required(await apiFetch<StarterTariffImportBatch[]>(`/api/platform/starter-tariffs?tenantId=${id}`), 'Starter tariff history'); },
+	async downloadOnboardingDocument(id: number) {
+		return apiDownload(`/api/platform/onboarding-documents/${id}/download`);
+	},
+	async starterTariffTemplate(format: 'csv' | 'xlsx') {
+		return apiDownload(`/api/platform/starter-tariffs/template?format=${format}`);
+	},
+	async starterTariffHistory(id: number) {
+		return required(
+			await apiFetch<StarterTariffImportBatch[]>(`/api/platform/starter-tariffs?tenantId=${id}`),
+			'Starter tariff history'
+		);
+	},
 	async validateStarterTariff(id: number, file: File, worksheet = '') {
-		const body = new FormData(); body.set('tenantId', String(id)); body.set('file', file); if (worksheet) body.set('worksheet', worksheet);
-		return required(await apiFetch<StarterTariffValidation>('/api/platform/starter-tariffs/validate', { method: 'POST', body }), 'Starter tariff validation');
+		const body = new FormData();
+		body.set('tenantId', String(id));
+		body.set('file', file);
+		if (worksheet) body.set('worksheet', worksheet);
+		return required(
+			await apiFetch<StarterTariffValidation>('/api/platform/starter-tariffs/validate', {
+				method: 'POST',
+				body
+			}),
+			'Starter tariff validation'
+		);
 	},
 	async commitStarterTariff(batchId: number, file: File) {
-		const body = new FormData(); body.set('file', file);
-		return required(await apiFetch<StarterTariffImportBatch>(`/api/platform/starter-tariffs/${batchId}/commit`, { method: 'POST', body }), 'Starter tariff commit');
+		const body = new FormData();
+		body.set('file', file);
+		return required(
+			await apiFetch<StarterTariffImportBatch>(`/api/platform/starter-tariffs/${batchId}/commit`, {
+				method: 'POST',
+				body
+			}),
+			'Starter tariff commit'
+		);
 	},
 	async activationReadiness(id: number) {
 		return required(

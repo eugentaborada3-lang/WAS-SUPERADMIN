@@ -9,6 +9,29 @@ export interface PlatformSession {
 	scope: 'platform';
 }
 
+export interface PlatformNotification {
+	id: number;
+	createdAt: string;
+	readAt?: string;
+	expiresAt?: string;
+	eventType: string;
+	severity: 'info' | 'warning' | 'critical';
+	title: string;
+	message: string;
+	sourceType: string;
+	sourceId?: string;
+	tenantId?: number;
+}
+
+export interface PlatformNotificationPage {
+	items: PlatformNotification[];
+	page: number;
+	pageSize: number;
+	total: number;
+	totalPages: number;
+	unread: number;
+}
+
 export interface PlatformLoginResult {
 	session?: PlatformSession;
 	mfaRequired: boolean;
@@ -71,12 +94,73 @@ export interface UtilityActivationReadiness {
 	requiredDocumentAccepted: boolean;
 }
 
-export interface UtilityImportIssue { row: number; field: string; message: string }
-export interface UtilityImportValidation { batchId:number; status:string; rowCount:number; validCount:number; errorCount:number; errors:UtilityImportIssue[]; preview:{slug:string;legalName:string;displayName:string;region:string;primaryContactEmail:string;serviceAreaCount:number;estimatedAccounts:number}[] }
-export interface UtilityImportBatch { id:number; createdAt:string; fileName:string; status:string; rowCount:number; validCount:number; errorCount:number; committedAt?:string }
-export interface OnboardingDocument { id:number; createdAt:string; tenantId:number; category:string; originalFileName:string; mimeType:string; byteSize:number; status:'Draft'|'Submitted'|'Accepted'|'Rejected'|'Replaced'; scannerStatus:string; rejectionReason:string; submittedAt?:string; reviewedAt?:string }
-export interface StarterTariffValidation { batchId:number; status:string; rowCount:number; validCount:number; errorCount:number; errors:UtilityImportIssue[]; draft?:Record<string,unknown>; simulation?:{consumption:string;total:string} }
-export interface StarterTariffImportBatch { id:number; createdAt:string; fileName:string; status:string; rowCount:number; validCount:number; errorCount:number; committedAt?:string; tariffVersionId?:number }
+export interface UtilityImportIssue {
+	row: number;
+	field: string;
+	message: string;
+}
+export interface UtilityImportValidation {
+	batchId: number;
+	status: string;
+	rowCount: number;
+	validCount: number;
+	errorCount: number;
+	errors: UtilityImportIssue[];
+	preview: {
+		slug: string;
+		legalName: string;
+		displayName: string;
+		region: string;
+		primaryContactEmail: string;
+		serviceAreaCount: number;
+		estimatedAccounts: number;
+	}[];
+}
+export interface UtilityImportBatch {
+	id: number;
+	createdAt: string;
+	fileName: string;
+	status: string;
+	rowCount: number;
+	validCount: number;
+	errorCount: number;
+	committedAt?: string;
+}
+export interface OnboardingDocument {
+	id: number;
+	createdAt: string;
+	tenantId: number;
+	category: string;
+	originalFileName: string;
+	mimeType: string;
+	byteSize: number;
+	status: 'Draft' | 'Submitted' | 'Accepted' | 'Rejected' | 'Replaced';
+	scannerStatus: string;
+	rejectionReason: string;
+	submittedAt?: string;
+	reviewedAt?: string;
+}
+export interface StarterTariffValidation {
+	batchId: number;
+	status: string;
+	rowCount: number;
+	validCount: number;
+	errorCount: number;
+	errors: UtilityImportIssue[];
+	draft?: Record<string, unknown>;
+	simulation?: { consumption: string; total: string };
+}
+export interface StarterTariffImportBatch {
+	id: number;
+	createdAt: string;
+	fileName: string;
+	status: string;
+	rowCount: number;
+	validCount: number;
+	errorCount: number;
+	committedAt?: string;
+	tariffVersionId?: number;
+}
 
 export interface PlatformServiceArea {
 	id: number;
