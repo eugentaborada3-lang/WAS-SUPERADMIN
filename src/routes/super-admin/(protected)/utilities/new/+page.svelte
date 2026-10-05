@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
+	import './page.css';
 	import { platformService } from '$lib/platform/service';
 	import type { OnboardingDraft, UtilityOnboardingInput } from '$lib/platform/types';
 	let step = $state(1);
@@ -83,6 +84,7 @@
 </script>
 
 <svelte:head><title>Onboard utility | WAS Platform</title></svelte:head>
+<div class="platform-utility-onboarding-page">
 <header class="mb-7">
 	<a href="/super-admin/utilities" class="text-sm text-cyan-400">← Utilities</a>
 	<h1 class="mt-3 text-3xl font-bold">Onboard a utility</h1>
@@ -235,18 +237,4 @@
 			>{/if}</div>
 	</div>
 </section>
-
-<style>
-	.field {
-		margin-top: 0.5rem;
-		width: 100%;
-		border-radius: 0.75rem;
-		border: 1px solid rgb(51 65 85);
-		background: rgb(30 41 59);
-		padding: 0.75rem 1rem;
-		outline: none;
-	}
-	.field:focus {
-		border-color: rgb(34 211 238);
-	}
-</style>
+</div>

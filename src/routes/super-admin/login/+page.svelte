@@ -1,4 +1,5 @@
 <script lang="ts">
+	import './page.css';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import { ApiError } from '$lib/api';
@@ -110,7 +111,7 @@
 <svelte:head><title>Sign in | Water Assistant System</title></svelte:head>
 
 <main
-	class="auth-shell relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-4 py-8 text-slate-100 sm:px-6 sm:py-10"
+	class="platform-login auth-shell relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-4 py-8 text-slate-100 sm:px-6 sm:py-10"
 >
 	<div
 		aria-hidden="true"

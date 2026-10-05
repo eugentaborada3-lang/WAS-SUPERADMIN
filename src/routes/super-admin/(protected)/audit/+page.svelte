@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import './page.css';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
 	import type { PlatformAuditEntry, PlatformPage } from '$lib/platform/types';
@@ -72,6 +73,7 @@
 </script>
 
 <svelte:head><title>Audit logs | WAS Platform</title></svelte:head>
+<div class="platform-audit-page">
 <header class="mb-7">
 	<p class="text-xs font-bold tracking-[0.2em] text-cyan-400">GOVERNANCE</p>
 	<h1 class="mt-2 text-3xl font-bold">Platform audit logs</h1>
@@ -177,17 +179,4 @@
 			>
 		</div>
 	</div>{/if}
-
-<style>
-	.field {
-		width: 100%;
-		border-radius: 0.75rem;
-		border: 1px solid rgb(51 65 85);
-		background: rgb(30 41 59);
-		padding: 0.75rem 1rem;
-		outline: none;
-	}
-	.field:focus {
-		border-color: rgb(34 211 238);
-	}
-</style>
+</div>

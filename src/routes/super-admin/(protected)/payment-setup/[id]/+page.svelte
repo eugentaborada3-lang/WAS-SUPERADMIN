@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import './page.css';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
 	import type { PaymentCallbackTest, PaymentFeeQuote, PaymentSetupConfig, PaymentSetupInput, PaymentSetupNotice, PaymentSetupState, PlatformUtility } from '$lib/platform/types';
@@ -59,6 +60,7 @@
 	onMount(load);
 </script>
 <svelte:head><title>GCash setup | WAS Platform</title></svelte:head>
+<div class="platform-payment-setup-detail-page">
 <header class="mb-7"><a class="text-sm text-cyan-300" href="/super-admin/payment-setup">← Payment setup</a><p class="mt-4 text-xs font-bold tracking-[0.2em] text-cyan-400">SA-06 · SIMULATOR</p><h1 class="mt-2 text-3xl font-bold">GCash channel and fees</h1><p class="mt-2 text-sm text-amber-200">Configuration and callbacks here are simulated. No money moves, no bill is posted, and production activation is unavailable.</p></header>
 {#if loading}<StatePanel variant="loading" title="Loading payment configuration" />
 {:else if !paymentState}<StatePanel variant="warning" title="Payment setup unavailable" message={error} />
@@ -96,4 +98,4 @@
 	<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6"><h2 class="font-bold">Callback test logs</h2>{#if !logs.length}<p class="mt-3 text-sm text-slate-400">No callback tests yet.</p>{:else}<div class="mt-4 overflow-x-auto"><table class="w-full min-w-[650px] text-left text-sm"><thead class="text-xs uppercase text-slate-400"><tr><th class="p-2">When</th><th class="p-2">Result</th><th class="p-2">Amount</th><th class="p-2">Reference</th><th class="p-2">Revision</th></tr></thead><tbody>{#each logs as log}<tr class="border-t border-slate-800"><td class="p-2">{new Date(log.createdAt).toLocaleString()}</td><td class="p-2">{log.status}{log.failureCode ? ` · ${log.failureCode}` : ''}</td><td class="p-2">₱{log.amount}</td><td class="p-2 font-mono text-xs">{log.providerReference || '—'}</td><td class="p-2">{log.configRevision}</td></tr>{/each}</tbody></table></div>{/if}</section>
 	<section class="mt-6 rounded-2xl border border-slate-800 bg-slate-900 p-6"><h2 class="font-bold">Finance alerts</h2>{#if !notices.length}<p class="mt-3 text-sm text-slate-400">No payment setup alerts.</p>{:else}<ul class="mt-3 space-y-3">{#each notices as notice}<li class="border-b border-slate-800 pb-3 text-sm"><span class="text-xs text-slate-500">{new Date(notice.createdAt).toLocaleString()}</span><p>{notice.message}</p></li>{/each}</ul>{/if}</section>
 {/if}
-<style>.field{margin-top:.5rem;width:100%;border-radius:.75rem;border:1px solid rgb(51 65 85);background:rgb(30 41 59);padding:.75rem 1rem;outline:none}.field:focus{border-color:rgb(34 211 238)}</style>
+</div>

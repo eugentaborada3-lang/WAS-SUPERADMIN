@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import './page.css';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
 	import type { PlatformRoleTemplate } from '$lib/platform/types';
@@ -31,6 +32,7 @@
 </script>
 
 <svelte:head><title>Roles and permissions | WAS Platform</title></svelte:head>
+<div class="platform-roles-page">
 <header class="mb-7">
 	<p class="text-xs font-bold tracking-[0.2em] text-cyan-400">ACCESS GOVERNANCE</p>
 	<h1 class="mt-2 text-3xl font-bold">Roles and permissions</h1>
@@ -63,4 +65,4 @@
 
 {#if editing}<div class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4"><form onsubmit={saveRole} class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-6"><h2 class="text-xl font-bold">Edit {editing.displayName}</h2><div class="mt-5 grid gap-4 sm:grid-cols-2"><label class="text-sm">Display name<input class="field" bind:value={displayName} required /></label><label class="text-sm">Description<input class="field" bind:value={description} /></label><fieldset class="sm:col-span-2"><legend class="text-sm font-semibold">Permissions</legend><div class="mt-3 grid gap-2 sm:grid-cols-2">{#each permissions as permission}<label class="rounded-lg border border-slate-700 p-3 text-xs"><input type="checkbox" bind:group={selectedPermissions} value={permission.name} class="mr-2" />{permission.name}<span class="mt-1 block text-slate-500">{permission.description || 'Platform permission'}</span></label>{/each}</div></fieldset><label class="sm:col-span-2 text-sm">Reason for change<textarea class="field min-h-20" bind:value={reason} minlength="5" required></textarea></label></div><div class="mt-5 flex justify-end gap-2"><button type="button" class="rounded-lg border border-slate-700 px-4 py-2" onclick={() => editing = null}>Cancel</button><button disabled={saving || selectedPermissions.length === 0 || reason.trim().length < 5} class="rounded-lg bg-cyan-600 px-4 py-2 font-semibold disabled:opacity-50">{saving ? 'Saving…' : 'Save template'}</button></div></form></div>{/if}
 
-<style>.field{margin-top:.5rem;width:100%;border-radius:.75rem;border:1px solid rgb(51 65 85);background:rgb(30 41 59);padding:.75rem 1rem}</style>
+</div>

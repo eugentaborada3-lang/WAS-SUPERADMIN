@@ -21,6 +21,13 @@ export interface PlatformNotification {
 	sourceType: string;
 	sourceId?: string;
 	tenantId?: number;
+	category: string;
+	destinationPath: string;
+}
+
+export interface PlatformNotificationPreference {
+	category: string;
+	enabled: boolean;
 }
 
 export interface PlatformNotificationPage {

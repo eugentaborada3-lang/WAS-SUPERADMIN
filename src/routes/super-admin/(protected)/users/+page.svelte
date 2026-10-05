@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { onMount } from 'svelte';
+	import './page.css';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
 	import type { PlatformPage, PlatformRole, PlatformUser } from '$lib/platform/types';
@@ -132,6 +133,7 @@
 </script>
 
 <svelte:head><title>Platform users | WAS Platform</title></svelte:head>
+<div class="platform-users-page">
 <header class="mb-7">
 	<p class="text-xs font-bold tracking-[0.2em] text-cyan-400">PLATFORM ACCESS</p>
 	<h1 class="mt-2 text-3xl font-bold">Platform users</h1>
@@ -293,18 +295,4 @@
 			>
 		</div>
 	</div>{/if}
-
-<style>
-	.field {
-		margin-top: 0.5rem;
-		width: 100%;
-		border-radius: 0.75rem;
-		border: 1px solid rgb(51 65 85);
-		background: rgb(30 41 59);
-		padding: 0.75rem 1rem;
-		outline: none;
-	}
-	.field:focus {
-		border-color: rgb(34 211 238);
-	}
-</style>
+</div>

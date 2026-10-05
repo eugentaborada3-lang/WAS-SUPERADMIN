@@ -112,6 +112,18 @@ export const platformService = {
 	async markAllNotificationsRead() {
 		await apiFetch('/api/platform/notifications/read-all', { method: 'POST' });
 	},
+	async notificationPreferences() {
+		return required(
+			await apiFetch<import('./types').PlatformNotificationPreference[]>('/api/platform/notification-preferences'),
+			'Notification preferences'
+		);
+	},
+	async saveNotificationPreference(category: string, enabled: boolean) {
+		await apiFetch('/api/platform/notification-preferences', {
+			method: 'PUT',
+			body: JSON.stringify({ category, enabled })
+		});
+	},
 	async dashboard(query: Record<string, string | number | undefined> = {}) {
 		const params = new URLSearchParams();
 		Object.entries(query).forEach(([key, value]) => {

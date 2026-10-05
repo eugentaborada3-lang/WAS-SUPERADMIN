@@ -1,0 +1,34 @@
+.platform-login.auth-shell {
+	background:
+		radial-gradient(circle at 12% 12%, rgba(8, 145, 178, 0.16), transparent 30rem),
+		radial-gradient(circle at 88% 86%, rgba(37, 99, 235, 0.08), transparent 26rem),
+		linear-gradient(145deg, #060d18 0%, #091423 55%, #0c192a 100%);
+}
+
+.platform-login .auth-card {
+	border: 1px solid rgba(100, 116, 139, 0.46);
+	border-radius: 1.5rem;
+	background: var(--portal-surface);
+	box-shadow:
+		0 34px 100px rgba(2, 8, 23, 0.58),
+		inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.platform-login .auth-brand-panel {
+	background: linear-gradient(
+		145deg,
+		rgba(21, 54, 74, 0.98) 0%,
+		rgba(14, 37, 58, 0.98) 48%,
+		rgba(12, 28, 47, 0.99) 100%
+	);
+}
+
+.platform-login .auth-form-panel {
+	background: linear-gradient(180deg, rgba(17, 27, 45, 0.98), rgba(13, 23, 39, 0.98));
+}
+
+@media (max-width: 639px) {
+	.platform-login .auth-card {
+		border-radius: 1rem;
+	}
+}

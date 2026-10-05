@@ -1,10 +1,15 @@
 <script lang="ts">
+	import './layout.css';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { PlatformNotification, PlatformSession } from '$lib/platform/types';
+	import type {
+		PlatformNotification,
+		PlatformNotificationPreference,
+		PlatformSession
+	} from '$lib/platform/types';
 	import wasLogo from '$lib/assets/favicon.svg';
 
 	let { data, children } = $props<{
@@ -19,6 +24,16 @@
 	let notificationsError = $state('');
 	let notifications = $state<PlatformNotification[]>([]);
 	let unreadNotifications = $state(0);
+	let preferencesOpen = $state(false);
+	let notificationPreferences = $state<PlatformNotificationPreference[]>([]);
+	const notificationCategories = [
+		'operations',
+		'billing',
+		'support',
+		'reports',
+		'security',
+		'integrations'
+	];
 
 	async function loadNotifications() {
 		notificationsLoading = true;
@@ -57,6 +72,34 @@
 		} catch (error) {
 			notificationsError =
 				error instanceof Error ? error.message : 'Unable to update notifications.';
+		}
+	}
+
+	async function loadNotificationPreferences() {
+		try {
+			notificationPreferences = await platformService.notificationPreferences();
+		} catch (error) {
+			notificationsError = error instanceof Error ? error.message : 'Unable to load preferences.';
+		}
+	}
+
+	function preferenceEnabled(category: string) {
+		return (
+			notificationPreferences.find((preference) => preference.category === category)?.enabled ??
+			true
+		);
+	}
+
+	async function toggleNotificationPreference(category: string) {
+		const enabled = !preferenceEnabled(category);
+		try {
+			await platformService.saveNotificationPreference(category, enabled);
+			notificationPreferences = [
+				...notificationPreferences.filter((preference) => preference.category !== category),
+				{ category, enabled }
+			];
+		} catch (error) {
+			notificationsError = error instanceof Error ? error.message : 'Unable to save preference.';
 		}
 	}
 
@@ -113,7 +156,9 @@
 	}
 </script>
 
-<div class="flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0b1424] text-slate-100">
+<div
+	class="platform-portal-shell flex h-[100dvh] min-h-0 flex-col overflow-hidden bg-[#0b1424] text-slate-100"
+>
 	<header class="z-30 shrink-0 border-b border-slate-800/80 bg-[#101b2d]/95 backdrop-blur">
 		<div
 			class="mx-auto flex min-h-20 max-w-screen-2xl items-center justify-between gap-4 px-4 lg:px-8"
@@ -131,92 +176,115 @@
 				onclick={() => (menuOpen = !menuOpen)}
 				aria-expanded={menuOpen}>Menu</button
 			>
-			<div class="relative hidden items-center gap-4 lg:flex">
+			<div class="relative flex items-center gap-2 lg:gap-4">
 				<span
-					class="rounded-full border border-slate-700 px-3 py-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase"
+					class="hidden rounded-full border border-slate-700 px-3 py-1 text-[10px] font-bold tracking-wider text-slate-400 uppercase lg:inline-flex"
 					>Platform portal</span
 				>
 				<button
-						type="button"
-						onclick={() => {
-							notificationsOpen = !notificationsOpen;
-							if (notificationsOpen) void loadNotifications();
-						}}
-						class="relative rounded-xl border border-slate-700/80 bg-slate-900/50 p-2.5 text-amber-300 transition hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-200"
-						aria-label={`Open alerts and activity${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`}
-						aria-expanded={notificationsOpen}
-						title="Alerts and activity"
+					type="button"
+					onclick={() => {
+						notificationsOpen = !notificationsOpen;
+						if (notificationsOpen) void loadNotifications();
+					}}
+					class="relative rounded-xl border border-slate-700/80 bg-slate-900/50 p-2.5 text-amber-300 transition hover:border-amber-400/60 hover:bg-amber-400/10 hover:text-amber-200"
+					aria-label={`Open alerts and activity${unreadNotifications ? `, ${unreadNotifications} unread` : ''}`}
+					aria-expanded={notificationsOpen}
+					title="Alerts and activity"
+				>
+					<svg
+						class="h-5 w-5"
+						fill="none"
+						stroke="currentColor"
+						viewBox="0 0 24 24"
+						aria-hidden="true"
 					>
-						<svg
-							class="h-5 w-5"
-							fill="none"
-							stroke="currentColor"
-							viewBox="0 0 24 24"
-							aria-hidden="true"
-						>
-							<path
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								stroke-width="1.8"
-								d="M14.857 17.082a23.848 23.848 0 0 1-5.714 0M18 8.25a6 6 0 1 0-12 0c0 7-3 7-3 9.75h18C21 15.25 18 15.25 18 8.25ZM10 20.25h4"
-							/>
-						</svg>
-						{#if unreadNotifications > 0}<span
-								class="absolute -top-1 -right-1 min-w-5 rounded-full bg-amber-300 px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-950"
-								aria-label={`${unreadNotifications} unread notifications`}
-								>{unreadNotifications > 99 ? '99+' : unreadNotifications}</span
-							>{/if}
-					</button>
+						<path
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							stroke-width="1.8"
+							d="M14.857 17.082a23.848 23.848 0 0 1-5.714 0M18 8.25a6 6 0 1 0-12 0c0 7-3 7-3 9.75h18C21 15.25 18 15.25 18 8.25ZM10 20.25h4"
+						/>
+					</svg>
+					{#if unreadNotifications > 0}<span
+							class="absolute -top-1 -right-1 min-w-5 rounded-full bg-amber-300 px-1.5 py-0.5 text-center text-[10px] font-bold text-slate-950"
+							aria-label={`${unreadNotifications} unread notifications`}
+							>{unreadNotifications > 99 ? '99+' : unreadNotifications}</span
+						>{/if}
+				</button>
 				{#if notificationsOpen}
-						<div
-							class="absolute top-12 right-0 z-50 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-700 bg-[#101b2d] shadow-2xl"
-							role="dialog"
-							aria-label="Notifications"
-						>
-							<div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
-								<div>
-									<p class="text-sm font-semibold text-slate-100">Notifications</p>
-									<p class="text-[11px] text-slate-400">{unreadNotifications} unread</p>
-								</div>
+					<div
+						class="absolute top-12 right-0 z-50 w-[min(23rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-700 bg-[#101b2d] shadow-2xl"
+						role="dialog"
+						aria-label="Notifications"
+					>
+						<div class="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+							<div>
+								<p class="text-sm font-semibold text-slate-100">Notifications</p>
+								<p class="text-[11px] text-slate-400">{unreadNotifications} unread</p>
+							</div>
+							<div class="flex items-center gap-3">
 								<button
+									type="button"
+									class="text-xs text-slate-300 hover:text-white"
+									onclick={() => {
+										preferencesOpen = !preferencesOpen;
+										if (preferencesOpen) void loadNotificationPreferences();
+									}}>Preferences</button
+								><button
 									type="button"
 									class="text-xs text-cyan-300 hover:text-cyan-200"
 									onclick={markAllNotificationsRead}
 									disabled={unreadNotifications === 0}>Mark all read</button
 								>
 							</div>
-							{#if notificationsLoading}<p class="px-4 py-8 text-center text-xs text-slate-400">
-									Loading notifications…
-								</p>{:else if notificationsError}<div class="space-y-3 px-4 py-5">
-									<p class="text-xs text-rose-300">{notificationsError}</p>
-									<button
-										type="button"
-										class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200"
-										onclick={loadNotifications}>Try again</button
-									>
-								</div>{:else if notifications.length === 0}<p
-									class="px-4 py-8 text-center text-xs text-slate-400"
-								>
-									No recent notifications.
-								</p>{:else}<div class="max-h-80 overflow-y-auto">
-									{#each notifications as notification (notification.id)}<a
-											href="/super-admin/audit"
-											class={`block border-b border-slate-800 px-4 py-3 text-left transition hover:bg-slate-900/70 ${notification.readAt ? 'opacity-65' : ''}`}
-											onclick={() => markNotificationRead(notification)}
-											><div class="flex items-start justify-between gap-3">
-												<p class="text-sm font-semibold text-slate-100">{notification.title}</p>
-												<span
-													class={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${notification.severity === 'critical' ? 'bg-rose-500/15 text-rose-300' : notification.severity === 'warning' ? 'bg-amber-500/15 text-amber-300' : 'bg-cyan-500/15 text-cyan-300'}`}
-													>{notification.severity}</span
-												>
-											</div>
-											<p class="mt-1 text-xs leading-5 text-slate-400">{notification.message}</p>
-											<p class="mt-2 text-[10px] text-slate-500">
-												{new Date(notification.createdAt).toLocaleString()}
-											</p></a
-										>{/each}
-								</div>{/if}
 						</div>
+						{#if preferencesOpen}<div class="grid grid-cols-2 gap-2 border-b border-slate-800 p-3">
+								{#each notificationCategories as category}<label
+										class="flex items-center gap-2 rounded-lg bg-slate-900/60 px-2 py-2 text-xs capitalize"
+										><input
+											type="checkbox"
+											checked={preferenceEnabled(category)}
+											disabled={category === 'security'}
+											onchange={() => toggleNotificationPreference(category)}
+										/>{category}</label
+									>{/each}
+								<p class="col-span-2 text-[10px] text-slate-500">
+									Security notifications are mandatory. These settings affect in-app notices only.
+								</p>
+							</div>{/if}
+						{#if notificationsLoading}<p class="px-4 py-8 text-center text-xs text-slate-400">
+								Loading notifications…
+							</p>{:else if notificationsError}<div class="space-y-3 px-4 py-5">
+								<p class="text-xs text-rose-300">{notificationsError}</p>
+								<button
+									type="button"
+									class="rounded-lg border border-slate-700 px-3 py-2 text-xs text-slate-200"
+									onclick={loadNotifications}>Try again</button
+								>
+							</div>{:else if notifications.length === 0}<p
+								class="px-4 py-8 text-center text-xs text-slate-400"
+							>
+								No recent notifications.
+							</p>{:else}<div class="max-h-80 overflow-y-auto">
+								{#each notifications as notification (notification.id)}<a
+										href={notification.destinationPath || '/super-admin/audit'}
+										class={`block border-b border-slate-800 px-4 py-3 text-left transition hover:bg-slate-900/70 ${notification.readAt ? 'opacity-65' : ''}`}
+										onclick={() => markNotificationRead(notification)}
+										><div class="flex items-start justify-between gap-3">
+											<p class="text-sm font-semibold text-slate-100">{notification.title}</p>
+											<span
+												class={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ${notification.severity === 'critical' ? 'bg-rose-500/15 text-rose-300' : notification.severity === 'warning' ? 'bg-amber-500/15 text-amber-300' : 'bg-cyan-500/15 text-cyan-300'}`}
+												>{notification.severity}</span
+											>
+										</div>
+										<p class="mt-1 text-xs leading-5 text-slate-400">{notification.message}</p>
+										<p class="mt-2 text-[10px] text-slate-500">
+											{notification.category} · {new Date(notification.createdAt).toLocaleString()}
+										</p></a
+									>{/each}
+							</div>{/if}
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -279,7 +347,7 @@
 				>
 			</div>
 		</aside>
-		<main class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto p-4 sm:p-7 lg:p-9">
+		<main class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-[#08111f] p-4 sm:p-7 lg:p-9">
 			{@render children()}
 		</main>
 	</div>
