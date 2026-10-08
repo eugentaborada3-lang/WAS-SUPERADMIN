@@ -226,14 +226,14 @@
 							<div class="flex items-center gap-3">
 								<button
 									type="button"
-									class="text-xs text-slate-300 hover:text-white"
+									class="notification-toolbar-button"
 									onclick={() => {
 										preferencesOpen = !preferencesOpen;
 										if (preferencesOpen) void loadNotificationPreferences();
 									}}>Preferences</button
 								><button
 									type="button"
-									class="text-xs text-cyan-300 hover:text-cyan-200"
+									class="notification-toolbar-button primary"
 									onclick={markAllNotificationsRead}
 									disabled={unreadNotifications === 0}>Mark all read</button
 								>
