@@ -87,6 +87,62 @@
 		background: rgba(12, 23, 40, 0.88);
 	}
 
+	.platform-filterbar label {
+		display: grid;
+		gap: 0.35rem;
+		font-weight: 650;
+		letter-spacing: 0.015em;
+		color: #cbd5e1;
+	}
+
+	.platform-filterbar input,
+	.platform-filterbar select {
+		min-height: 2.65rem;
+		margin-top: 0;
+		border-color: rgba(71, 85, 105, 0.85);
+		background: rgba(7, 16, 30, 0.82);
+		color: #f8fafc;
+		transition:
+			border-color 160ms ease,
+			background-color 160ms ease,
+			box-shadow 160ms ease;
+	}
+
+	.platform-filterbar input:hover,
+	.platform-filterbar select:hover {
+		border-color: rgba(100, 116, 139, 0.95);
+		background: rgba(15, 26, 44, 0.94);
+	}
+
+	.platform-filterbar input:focus-visible,
+	.platform-filterbar select:focus-visible {
+		border-color: #22d3ee;
+		outline: none;
+		box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.13);
+	}
+
+	.platform-filterbar button {
+		min-height: 2.65rem;
+		border: 1px solid rgba(103, 232, 249, 0.22);
+		border-radius: 0.72rem;
+		background: linear-gradient(135deg, #0891b2, #0e7490);
+		box-shadow: 0 10px 24px rgba(8, 145, 178, 0.18);
+		transition:
+			background-color 160ms ease,
+			box-shadow 160ms ease,
+			transform 160ms ease;
+	}
+
+	.platform-filterbar button:hover:not(:disabled) {
+		box-shadow: 0 12px 26px rgba(8, 145, 178, 0.25);
+		transform: translateY(-1px);
+	}
+
+	.platform-filterbar button:disabled {
+		cursor: not-allowed;
+		opacity: 0.55;
+	}
+
 	.platform-metric {
 		position: relative;
 		display: block;
@@ -98,6 +154,11 @@
 			border-color 0.2s,
 			background 0.2s,
 			box-shadow 0.2s;
+	}
+
+	.platform-metric > :nth-child(2) {
+		font-variant-numeric: tabular-nums;
+		text-wrap: balance;
 	}
 
 	.platform-metric::before {
@@ -135,8 +196,26 @@
 		transform: translateY(-2px);
 	}
 
+	.platform-metric:focus-visible,
+	.platform-hero-action:focus-visible,
+	.platform-panel a:focus-visible {
+		outline: 2px solid #67e8f9;
+		outline-offset: 3px;
+	}
+
 	.platform-panel {
 		overflow: hidden;
+	}
+
+	.platform-panel > div:first-child {
+		background: rgba(7, 16, 30, 0.24);
+	}
+
+	.platform-panel a,
+	.platform-panel time {
+		transition:
+			background-color 160ms ease,
+			color 160ms ease;
 	}
 
 	@media (max-width: 640px) {
@@ -153,6 +232,19 @@
 
 		.platform-metric {
 			min-height: 138px;
+		}
+
+		.platform-filterbar button {
+			width: 100%;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		.platform-hero-action,
+		.platform-metric,
+		.platform-filterbar button,
+		.platform-panel a {
+			transition-duration: 0.01ms;
 		}
 	}
 }
