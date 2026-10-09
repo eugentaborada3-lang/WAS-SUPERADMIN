@@ -218,6 +218,42 @@
 			color 160ms ease;
 	}
 
+	.platform-analytics {
+		border: 1px solid rgba(100, 116, 139, 0.28);
+		border-radius: 1.1rem;
+		background: linear-gradient(145deg, rgba(17, 30, 50, 0.98), rgba(11, 23, 40, 0.98));
+		padding: clamp(1.1rem, 2.4vw, 1.5rem);
+	}
+	.platform-analytics-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+	.platform-analytics-heading p { font-size: 0.69rem; font-weight: 750; letter-spacing: 0.2em; color: #67e8f9; }
+	.platform-analytics-heading h2 { margin-top: 0.3rem; font-size: 1.25rem; font-weight: 650; color: #f8fafc; }
+	.platform-analytics-heading > small { color: #94a3b8; }
+	.platform-analytics-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.75rem; }
+	.platform-analytics-metric { display: grid; gap: 0.35rem; min-height: 150px; border: 1px solid rgba(100, 116, 139, 0.25); border-radius: 0.85rem; background: rgba(7, 16, 30, 0.55); padding: 1rem; }
+	.platform-analytics-metric:hover { border-color: rgba(103, 232, 249, 0.4); }
+	.platform-analytics-metric > span { justify-self: start; border-radius: 999px; background: rgba(34, 211, 238, 0.1); padding: 0.2rem 0.5rem; font-size: 0.62rem; font-weight: 750; letter-spacing: 0.08em; text-transform: uppercase; color: #67e8f9; }
+	.platform-analytics-metric > span[data-kind='calculated'] { background: rgba(167, 139, 250, 0.12); color: #c4b5fd; }
+	.platform-analytics-metric > strong { margin-top: 0.35rem; font-size: 1.4rem; color: #f8fafc; font-variant-numeric: tabular-nums; }
+	.platform-analytics-metric > b { font-size: 0.82rem; color: #cbd5e1; }
+	.platform-analytics-metric > small { line-height: 1.4; color: #8291a7; }
+	.platform-comparison { font-size: 0.68rem; font-style: normal; color: #5eead4; }
+	.platform-comparison[data-direction='down'] { color: #fca5a5; }
+	.platform-analytics-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.8fr); gap: 1rem; margin-top: 1rem; }
+	.platform-trend, .platform-integration-status { min-height: 220px; border: 1px solid rgba(100, 116, 139, 0.22); border-radius: 0.85rem; background: rgba(7, 16, 30, 0.42); padding: 1rem; }
+	.platform-trend h3, .platform-integration-status h3 { font-size: 0.85rem; font-weight: 700; color: #e2e8f0; }
+	.platform-trend > p { margin-top: 2rem; font-size: 0.8rem; color: #94a3b8; }
+	.platform-trend-bars { display: flex; height: 160px; align-items: flex-end; gap: clamp(0.25rem, 1vw, 0.75rem); overflow-x: auto; padding-top: 1.25rem; }
+	.platform-trend-bars > div { display: grid; min-width: 24px; height: 130px; flex: 1; grid-template-rows: 1fr auto; align-items: end; gap: 0.35rem; }
+	.platform-trend-bars span { display: block; min-height: 4px; border-radius: 0.3rem 0.3rem 0 0; background: linear-gradient(#22d3ee, #0e7490); }
+	.platform-trend-bars small { overflow: hidden; font-size: 0.58rem; color: #64748b; text-align: center; }
+	.platform-integration-status ul { display: grid; gap: 0.45rem; margin-top: 0.8rem; }
+	.platform-integration-status li { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid rgba(100, 116, 139, 0.18); padding: 0.5rem 0; }
+	.platform-integration-status li span { display: grid; gap: 0.12rem; }
+	.platform-integration-status li strong { font-size: 0.78rem; color: #e2e8f0; text-transform: capitalize; }
+	.platform-integration-status li small { font-size: 0.62rem; color: #64748b; }
+	.platform-integration-status li > b { border-radius: 999px; background: rgba(148, 163, 184, 0.1); padding: 0.25rem 0.5rem; font-size: 0.65rem; color: #cbd5e1; }
+	.platform-integration-status li > b[data-state='unavailable'] { color: #fbbf24; }
+
 	@media (max-width: 640px) {
 		.platform-hero {
 			min-height: 0;
@@ -237,6 +273,8 @@
 		.platform-filterbar button {
 			width: 100%;
 		}
+		.platform-analytics-heading { align-items: flex-start; flex-direction: column; }
+		.platform-analytics-grid { grid-template-columns: 1fr; }
 	}
 
 	@media (prefers-reduced-motion: reduce) {

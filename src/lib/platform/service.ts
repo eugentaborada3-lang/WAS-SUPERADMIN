@@ -50,6 +50,14 @@ const required = <T>(value: T | null, feature: string): T => {
 };
 
 export const platformService = {
+	async search(query: string) {
+		return required(
+			await apiFetch<import('./types').PlatformSearchResult[]>(
+				`/api/platform/search?q=${encodeURIComponent(query)}`
+			),
+			'Platform search'
+		);
+	},
 	async login(email: string, password: string) {
 		return required(
 			await apiFetch<PlatformLoginResult>('/api/platform/auth/login', {

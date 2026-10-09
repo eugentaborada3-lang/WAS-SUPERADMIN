@@ -5,7 +5,7 @@
 	import { onMount } from 'svelte';
 	import StatePanel from '$lib/components/StatePanel.svelte';
 	import { platformService } from '$lib/platform/service';
-	import type { PlatformDashboard, PlatformUtility } from '$lib/platform/types';
+	import type { AnalyticsMetric, PlatformDashboard, PlatformUtility } from '$lib/platform/types';
 
 	let dashboard = $state<PlatformDashboard | null>(null);
 	let loading = $state(true);
@@ -18,6 +18,17 @@
 	let status = $state(page.url.searchParams.get('status') ?? '');
 	const role = $derived(page.data.platformSession?.role);
 	const roleLabel = $derived(role?.replaceAll('-', ' ') ?? 'platform user');
+	const analytics = $derived(dashboard?.analytics ?? null);
+	const paymentTrend = $derived(analytics?.trends.payments ?? []);
+	const paymentTrendMaximum = $derived(Math.max(1, ...paymentTrend.map((point) => Number(point.value))));
+
+	function formatAnalyticsMetric(metric: AnalyticsMetric) {
+		if (!metric.available || metric.value === undefined) return 'Not available yet';
+		const value = Number(metric.value);
+		if (metric.unit === 'PHP') return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(value);
+		if (metric.unit === 'percent') return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}%`;
+		return value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+	}
 
 	async function loadDashboard() {
 		loading = true;
@@ -362,6 +373,39 @@
 				</div>{/if}
 		</div>
 	</section>
+	{#if analytics}
+		<section class="platform-analytics mt-7" aria-labelledby="platform-analytics-heading">
+			<div class="platform-analytics-heading">
+				<div><p>PLATFORM ANALYTICS</p><h2 id="platform-analytics-heading">Measured performance</h2></div>
+				<small>Data through {new Date(analytics.dataThrough).toLocaleString()}</small>
+			</div>
+			<div class="platform-analytics-metrics">
+				{#each analytics.metrics as metric}
+					<a class="platform-analytics-metric" href={metric.drilldown} title={metric.basis}>
+						<span data-kind={metric.classification}>{metric.classification}</span>
+						<strong>{formatAnalyticsMetric(metric)}</strong>
+						<b>{metric.label}</b>
+						{#if metric.comparisonPercent !== undefined}<em class="platform-comparison" data-direction={Number(metric.comparisonPercent) >= 0 ? 'up' : 'down'}>{Number(metric.comparisonPercent) >= 0 ? '+' : ''}{metric.comparisonPercent}% vs previous period</em>{/if}
+						<small>{metric.basis}</small>
+					</a>
+				{/each}
+			</div>
+			<div class="platform-analytics-grid">
+				<div class="platform-trend">
+					<h3>Recorded payment volume</h3>
+					{#if paymentTrend.length}
+						<div class="platform-trend-bars" role="img" aria-label="Daily recorded payment volume">
+							{#each paymentTrend as point}<div title={`${point.period}: PHP ${Number(point.value).toLocaleString()}`}><span style={`height: ${Math.max(4, (Number(point.value) / paymentTrendMaximum) * 100)}%`}></span><small>{point.period.slice(5)}</small></div>{/each}
+						</div>
+					{:else}<p>No recorded payment data is available for this period or role.</p>{/if}
+				</div>
+				<div class="platform-integration-status">
+					<h3>Integration observations</h3>
+					<ul>{#each analytics.integrations as integration}<li><span><strong>{integration.key.replaceAll('-', ' ')}</strong><small>{integration.classification}{integration.observedAt ? ` · ${new Date(integration.observedAt).toLocaleString()}` : ''}</small></span><b data-state={integration.classification}>{integration.status}</b></li>{/each}</ul>
+				</div>
+			</div>
+		</section>
+	{/if}
 	<div class="mt-7 grid gap-5 xl:grid-cols-2">
 		<section class="platform-panel">
 			<div class="flex items-center justify-between border-b border-slate-800 p-5">

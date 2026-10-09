@@ -1,13 +1,14 @@
 <script lang="ts">
 	import './layout.css';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { afterNavigate, goto } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
 	import type { Snippet } from 'svelte';
 	import { platformService } from '$lib/platform/service';
 	import type {
 		PlatformNotification,
 		PlatformNotificationPreference,
+		PlatformSearchResult,
 		PlatformSession
 	} from '$lib/platform/types';
 	import wasLogo from '$lib/assets/favicon.svg';
@@ -17,7 +18,16 @@
 		children: Snippet;
 	}>();
 	let menuOpen = $state(false);
+	let sidebarCollapsed = $state(false);
 	let navSearch = $state('');
+	let commandOpen = $state(false);
+	let commandQuery = $state('');
+	let commandResults = $state<PlatformSearchResult[]>([]);
+	let commandLoading = $state(false);
+	let commandError = $state('');
+	let commandTimer: ReturnType<typeof setTimeout> | undefined;
+	let commandInput = $state<HTMLInputElement>();
+	let recentLinks = $state<{ href: string; label: string }[]>([]);
 	let signingOut = $state(false);
 	let notificationsOpen = $state(false);
 	let notificationsLoading = $state(false);
@@ -103,9 +113,7 @@
 		}
 	}
 
-	onMount(() => {
-		void loadNotifications();
-	});
+	const shellPreferenceKey = $derived(`was:platform:${data.platformSession.userId}:shell`);
 	const links = $derived(
 		[
 			{ href: '/super-admin/dashboard', label: 'Overview' },
@@ -145,6 +153,98 @@
 				!navSearch.trim() || link.label.toLowerCase().includes(navSearch.trim().toLowerCase())
 		)
 	);
+	const commandLinks = $derived(
+		visibleLinks.filter((link) => {
+			const query = commandQuery.trim().toLowerCase();
+			return !query || link.label.toLowerCase().includes(query);
+		})
+	);
+	const currentPageLabel = $derived(
+		links.find((link) => page.url.pathname.startsWith(link.href))?.label ?? 'Platform workspace'
+	);
+
+	function rememberLink(pathname: string) {
+		const link = links.find((entry) => pathname.startsWith(entry.href));
+		if (!link) return;
+		recentLinks = [link, ...recentLinks.filter((entry) => entry.href !== link.href)].slice(0, 4);
+		localStorage.setItem(`${shellPreferenceKey}:recent`, JSON.stringify(recentLinks.map((entry) => entry.href)));
+	}
+
+	function toggleSidebar() {
+		sidebarCollapsed = !sidebarCollapsed;
+		localStorage.setItem(`${shellPreferenceKey}:collapsed`, String(sidebarCollapsed));
+	}
+
+	async function openCommandPalette() {
+		commandQuery = '';
+		commandResults = [];
+		commandError = '';
+		commandOpen = true;
+		await tick();
+		commandInput?.focus();
+	}
+
+	function closeCommandPalette() {
+		commandOpen = false;
+		commandQuery = '';
+		commandResults = [];
+		commandError = '';
+	}
+
+	function scheduleCommandSearch() {
+		if (commandTimer) clearTimeout(commandTimer);
+		commandError = '';
+		const query = commandQuery.trim();
+		if (query.length < 2) {
+			commandResults = [];
+			commandLoading = false;
+			return;
+		}
+		commandLoading = true;
+		commandTimer = setTimeout(async () => {
+			try {
+				commandResults = await platformService.search(query);
+			} catch (error) {
+				commandResults = [];
+				commandError = error instanceof Error ? error.message : 'Search is unavailable.';
+			} finally {
+				commandLoading = false;
+			}
+		}, 250);
+	}
+
+	function handleGlobalKeydown(event: KeyboardEvent) {
+		if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+			event.preventDefault();
+			openCommandPalette();
+		}
+		if (event.key === 'Escape') {
+			commandOpen = false;
+			notificationsOpen = false;
+			menuOpen = false;
+		}
+	}
+
+	onMount(() => {
+		void loadNotifications();
+		sidebarCollapsed = localStorage.getItem(`${shellPreferenceKey}:collapsed`) === 'true';
+		try {
+			const stored = JSON.parse(localStorage.getItem(`${shellPreferenceKey}:recent`) ?? '[]') as string[];
+			recentLinks = stored
+				.map((href) => links.find((link) => link.href === href))
+				.filter((link): link is { href: string; label: string } => Boolean(link))
+				.slice(0, 4);
+		} catch {
+			recentLinks = [];
+		}
+		rememberLink(page.url.pathname);
+		window.addEventListener('keydown', handleGlobalKeydown);
+		return () => window.removeEventListener('keydown', handleGlobalKeydown);
+	});
+
+	afterNavigate(({ to }) => {
+		if (to) rememberLink(to.url.pathname);
+	});
 
 	async function logout() {
 		signingOut = true;
@@ -290,12 +390,12 @@
 		</div>
 	</header>
 	<div
-		class="relative mx-auto grid min-h-0 w-full max-w-screen-2xl flex-1 overflow-hidden lg:grid-cols-[272px_1fr]"
+		class={`relative mx-auto grid min-h-0 w-full max-w-screen-2xl flex-1 overflow-hidden ${sidebarCollapsed ? 'lg:grid-cols-[80px_1fr]' : 'lg:grid-cols-[272px_1fr]'}`}
 	>
 		<aside
 			class={`absolute inset-0 z-20 min-h-0 flex-col overflow-hidden border-slate-800/80 bg-[#101b2d] p-4 lg:static lg:flex lg:h-full lg:border-r ${menuOpen ? 'flex' : 'hidden'}`}
 		>
-			<div class="shrink-0 px-4 pt-2 pb-3">
+			<div class={`shrink-0 px-4 pt-2 pb-3 ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
 				<p class="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase">
 					Platform workspace
 				</p>
@@ -307,7 +407,8 @@
 				aria-label="Platform navigation"
 				class="platform-nav-scroll min-h-0 flex-1 space-y-1 overflow-y-auto overscroll-contain pr-1"
 			>
-				<label class="portal-search mb-3" aria-label="Search platform navigation">
+				<button type="button" class="command-trigger mb-3" onclick={openCommandPalette} aria-keyshortcuts="Control+K Meta+K"><span aria-hidden="true">⌕</span><span class={sidebarCollapsed ? 'lg:hidden' : ''}>Search records and pages</span><kbd class={sidebarCollapsed ? 'lg:hidden' : ''}>Ctrl K</kbd></button>
+				<label class={`portal-search mb-3 ${sidebarCollapsed ? 'lg:hidden' : ''}`} aria-label="Search platform navigation">
 					<svg
 						class="h-4 w-4 shrink-0"
 						fill="none"
@@ -328,27 +429,44 @@
 						aria-current={page.url.pathname.startsWith(link.href) ? 'page' : undefined}
 						onclick={() => (menuOpen = false)}
 						class={`block rounded-lg px-4 py-2.5 text-[13px] font-medium transition ${page.url.pathname.startsWith(link.href) ? 'bg-cyan-500/10 text-cyan-100 ring-1 ring-cyan-400/30 ring-inset' : 'text-slate-300 hover:bg-slate-800 hover:text-white'}`}
-						>{link.label}</a
+						><span class={`w-7 shrink-0 text-center text-[10px] font-bold tracking-wide ${sidebarCollapsed ? 'hidden lg:inline' : 'hidden'}`} aria-hidden="true">{link.label.slice(0, 2).toUpperCase()}</span><span class={sidebarCollapsed ? 'lg:hidden' : ''}>{link.label}</span></a
 					>
 				{/each}
 				{#if visibleLinks.length === 0}<p class="px-3 py-5 text-center text-xs text-slate-500">
 						No matching pages
 					</p>{/if}
+				{#if recentLinks.length > 1 && !sidebarCollapsed}<div class="mt-4 border-t border-slate-800 pt-3"><p class="px-3 text-[10px] font-bold tracking-[0.18em] text-slate-500 uppercase">Recent</p>{#each recentLinks.slice(1) as link}<a class="recent-link" href={link.href} onclick={() => (menuOpen = false)}>{link.label}</a>{/each}</div>{/if}
 			</nav>
 			<div class="mt-4 shrink-0 border-t border-slate-800 pt-4">
-				<p class="truncate px-3 text-sm font-semibold">{data.platformSession.name}</p>
-				<p class="mt-0.5 px-3 text-xs text-slate-400 capitalize">
+				<p class={`truncate px-3 text-sm font-semibold ${sidebarCollapsed ? 'lg:hidden' : ''}`}>{data.platformSession.name}</p>
+				<p class={`mt-0.5 px-3 text-xs text-slate-400 capitalize ${sidebarCollapsed ? 'lg:hidden' : ''}`}>
 					{data.platformSession.role.replaceAll('-', ' ')}
 				</p>
 				<button
-					class="mt-3 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-rose-500 hover:text-rose-300 disabled:opacity-60"
+					class={`mt-3 w-full rounded-lg border border-slate-700 px-3 py-2 text-sm transition hover:border-rose-500 hover:text-rose-300 disabled:opacity-60 ${sidebarCollapsed ? 'lg:hidden' : ''}`}
 					disabled={signingOut}
 					onclick={logout}>{signingOut ? 'Signing out…' : 'Sign out'}</button
 				>
+				<button type="button" class="sidebar-collapse-button mt-3 hidden lg:flex" onclick={toggleSidebar} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{sidebarCollapsed ? '›' : '‹'}</button>
 			</div>
 		</aside>
-		<main class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-[#08111f] p-4 sm:p-7 lg:p-9">
+		<main class="min-h-0 min-w-0 overflow-x-hidden overflow-y-auto bg-[#08111f] p-4 sm:p-7 lg:p-9" aria-label={currentPageLabel}>
 			{@render children()}
 		</main>
 	</div>
 </div>
+
+{#if commandOpen}
+	<div class="command-backdrop">
+		<button type="button" class="command-dismiss" onclick={closeCommandPalette} aria-label="Close command search"></button>
+		<div class="command-palette" role="dialog" aria-modal="true" aria-label="Search records and pages">
+			<div class="command-input-row"><span aria-hidden="true">⌕</span><input bind:this={commandInput} bind:value={commandQuery} oninput={scheduleCommandSearch} type="search" placeholder="Search utilities, users, support cases, or pages…" aria-label="Search permitted records and pages" /><kbd>Esc</kbd></div>
+			<p class="command-scope-note">Results are limited by your platform role and server permissions. Enter at least two characters to search records.</p>
+			<div class="command-results" role="listbox" aria-label="Search results">
+				{#each commandLinks as link}<a href={link.href} role="option" aria-selected="false" onclick={closeCommandPalette}><span><strong>{link.label}</strong><small>Platform navigation</small></span><span aria-hidden="true">↵</span></a>{/each}
+				{#if commandLoading}<p role="status">Searching permitted records…</p>{:else if commandError}<p role="alert">{commandError} Try again by changing the search.</p>{:else}{#each commandResults as result (result.type + result.id)}<a href={result.path} role="option" aria-selected="false" onclick={closeCommandPalette}><span><strong>{result.title}</strong><small>{result.type} · {result.description}</small></span><span aria-hidden="true">↵</span></a>{/each}{/if}
+				{#if commandLinks.length === 0 && commandResults.length === 0 && !commandLoading && !commandError}<p>{commandQuery.trim().length < 2 ? 'Type at least two characters to search records.' : `No permitted results match “${commandQuery}”.`}</p>{/if}
+			</div>
+		</div>
+	</div>
+{/if}

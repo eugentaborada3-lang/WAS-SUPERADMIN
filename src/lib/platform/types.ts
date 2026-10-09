@@ -39,6 +39,14 @@ export interface PlatformNotificationPage {
 	unread: number;
 }
 
+export interface PlatformSearchResult {
+	type: string;
+	id: number;
+	title: string;
+	description: string;
+	path: string;
+}
+
 export interface PlatformLoginResult {
 	session?: PlatformSession;
 	mfaRequired: boolean;
@@ -442,6 +450,31 @@ export interface PlatformDashboard {
 	recentUtilities: PlatformUtility[];
 	recentAudit: PlatformAuditEntry[];
 	deferredIntegrations: string[];
+	analytics?: AnalyticsOverview;
+}
+
+export interface AnalyticsMetric {
+	key: string;
+	label: string;
+	value?: string;
+	unit: string;
+	classification: 'recorded' | 'calculated' | 'delayed' | 'simulated' | 'unavailable';
+	basis: string;
+	drilldown: string;
+	available: boolean;
+	comparisonPercent?: string;
+}
+
+export interface AnalyticsOverview {
+	generatedAt: string;
+	dataThrough: string;
+	from: string;
+	until: string;
+	metrics: AnalyticsMetric[];
+	trends: Record<string, Array<{ period: string; value: string; count: number }>>;
+	breakdowns: Record<string, Array<{ key: string; label: string; count: number; amount: string }>>;
+	integrations: Array<{ key: string; status: string; classification: string; observedAt?: string }>;
+	financialDataVisible: boolean;
 }
 
 export interface UtilityOnboardingInput {
